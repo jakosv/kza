@@ -55,30 +55,35 @@ void kz1d(double *x, int length, int window, int iterations)
     free(tmp);
 }
 
-void kz(double *x, int dim, int *size, int *window, int iterations)
+void kz(double *x, int dim, const int *size, const int *window,
+        int iterations)
 {
     int i;
+    int *m;
 
     if (!x || !size || !window) {
         fprintf(stderr, "kz(): Incorrect params\n");
         return;
     }
 
+    m = malloc(dim * sizeof(int));
     for (i = 0; i < dim; i++)
-        window[i] = floor(window[i] / 2.0);
+        m[i] = floor(window[i] / 2.0);
 
     if (dim > 3) {
         fprintf(stderr, "Too many dimensions\n");
         return;
     } else if (dim == 3) {
         /*
-        kz3d(x, size, window, iterations); 
+        kz3d(x, size, m, iterations); 
         */
     } else if (dim == 2) {
         /*
-        kz2d(x, size, window, iterations); 
+        kz2d(x, size, m, iterations); 
         */
     } else if (dim == 1) {
-        kz1d(x, size[0], window[0], iterations); 
+        kz1d(x, size[0], m[0], iterations); 
     }
+
+    free(m);
 }

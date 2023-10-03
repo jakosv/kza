@@ -1,7 +1,7 @@
 LIBNAME = libkza
 CFLAGS = -Wall -fPIC
 LDFLAGS = -lm
-OBJMODULES = kz.o
+OBJMODULES = kz.o kza.o kzf.o
 
 .PHONY: clean
 
