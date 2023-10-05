@@ -1,9 +1,45 @@
-#include "kz.h"
+#include "kza.h"
 
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+
+static double maximum(const double *v, int length) 
+{
+	double m;
+	int i;
+	
+	for(i = 0, m = v[0]; i < length; i++) {
+        if (isfinite(v[i])) 
+            m = MAX(v[i], m);
+    }
+	return m;
+}
+
+static void differenced(const double *y, double *d, double *dprime,
+                        int length, int q)
+{
+    int i;
+    long n;
+    
+    n = length;    
+
+	/* calculate d = |Z(i+q) - Z(i-q)| */
+	for (i = 0; i < q; i++)
+        d[i] = fabs(y[i+q] - y[0]);
+	for (i = q; i < n-q; i++)
+        d[i] = fabs(y[i+q] - y[i-q]);
+	for (i = n-q; i < n; i++)
+        d[i] = fabs(y[n-1] - y[i-q]);
+
+	/* d'(t) = d(i+1)-d(i) */
+	for(i = 0; i < n-1; i++)
+        dprime[i] = d[i+1] - d[i];
+	dprime[n-1] = dprime[n-2];
+}
 
 static double adaptive(double d, double m)
 {
@@ -27,8 +63,8 @@ static double mavg1d(const double *x, int a, int b)
     return s/z;
 }
 
-void kza1d(double *v, int n, const double *y, int window, int iterations,
-           int min_windown_len, double tolerance)
+static double *kza1d(const double *v, int n, const double *y, int window,
+                     int iterations, int min_windown_len, double tolerance)
 {
     int i, mem_size;
     double *d, *dprime;
@@ -75,21 +111,33 @@ void kza1d(double *v, int n, const double *y, int window, int iterations,
         memcpy(tmp, ans, mem_size);
     }
 
-    memcpy(v, ans, mem_size);
-
     free(tmp);
     free(d);
     free(dprime);
+
+    return ans;
 }
 
-void kza(double *x, int dim, const int *size, const double *y, 
-         const int *window, int iterations, double min_window, double tol)
+double *kza(const double *x, int dim, const int *size, const double *y, 
+            const int *window, int iterations, double min_window, double tol)
 {
-    double *kz_ans;
+    double *kz_ans = NULL;
+    double *kza_ans = NULL;
     int mem_size;
+
+    if (!x || !size || !window) {
+        fprintf(stderr, "kza: Incorrect params\n");
+        return NULL;
+    }
+
+    if (dim > 1) {
+        fprintf(stderr, "kza: Not yet implemented\n");
+        return NULL;
+    }
 
     mem_size = size[0] * sizeof(double);
     kz_ans = malloc(mem_size);
+
     if (!y) {
         memcpy(kz_ans, x, mem_size);
         kz(kz_ans, dim, size, window, iterations);
@@ -97,8 +145,15 @@ void kza(double *x, int dim, const int *size, const double *y,
         memcpy(kz_ans, y, mem_size);
     }
 
-    kza1d(x, size[0], kz_ans, window[0], iterations, min_window, tol);
+    kza_ans = kza1d(x, size[0], kz_ans, window[0], iterations, min_window,
+                    tol);
 
     free(kz_ans);
+
+    return kza_ans;
 }
 
+void kza_free(double *x)
+{
+    free(x);
+}

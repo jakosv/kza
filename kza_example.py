@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 libkza_path = os.getcwd() + "/libkza.so"
 
 libkza = ct.CDLL(libkza_path)
+
 libkza.kz.argtypes = [
     ct.POINTER(ct.c_double), 
     ct.c_int, 
@@ -13,9 +14,8 @@ libkza.kz.argtypes = [
     ct.POINTER(ct.c_int), 
     ct.c_int
 ]
-libkza.kz.restype = None
+libkza.kz.restype = ct.POINTER(ct.c_double)
 
-libkza = ct.CDLL(libkza_path)
 libkza.kza.argtypes = [
     ct.POINTER(ct.c_double), 
     ct.c_int, 
@@ -26,7 +26,10 @@ libkza.kza.argtypes = [
     ct.c_double,
     ct.c_double
 ]
-libkza.kza.restype = None
+libkza.kza.restype = ct.POINTER(ct.c_double)
+
+libkza.kza_free.argtypes = [ct.POINTER(ct.c_double)]
+libkza.kza_free.restype = None
 
 
 def kz1d(x, m, k = 3):
@@ -34,8 +37,10 @@ def kz1d(x, m, k = 3):
     dim = 1
     size = (ct.c_int)(len(x))
     window = (ct.c_int)(m)
-    libkza.kz(xp, dim, ct.byref(size), ct.byref(window), k)
-    return list(xp)
+    res = libkza.kz(xp, dim, ct.byref(size), ct.byref(window), k)
+    ans = res[:len(x)]
+    libkza.kza_free(res)
+    return ans
 
 def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
         impute_tails = False):
@@ -47,9 +52,11 @@ def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
     dim = 1
     size = (ct.c_int)(len(x))
     window = (ct.c_int)(m)
-    libkza.kza(xp, dim, ct.byref(size), yp, ct.byref(window), k, min_size,
-            tol)
-    return list(xp)
+    res = libkza.kza(xp, dim, ct.byref(size), yp, ct.byref(window), k,
+                     min_size, tol)
+    ans = res[:len(x)]
+    libkza.kza_free(res)
+    return ans
 
 # Example
 #np.random.seed(1)

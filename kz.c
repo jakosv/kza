@@ -1,10 +1,11 @@
-#include "kz.h"
+#include "kza.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 
-static double mavg1d(double *v, int length, int col, int w)
+static double mavg1d(const double *v, int length, int col, int w)
 {
     double s;
     int i, z;
@@ -35,35 +36,39 @@ static double mavg1d(double *v, int length, int col, int w)
     return s/z;
 }
 
-void kz1d(double *x, int length, int window, int iterations)
+static double *kz1d(const double *x, int length, int window, int iterations)
 {
     int i, k;
-    int arr_size;
-    double *tmp;
+    int mem_size;
+    double *tmp, *ans;
 
-    arr_size = length * sizeof(double);
-    tmp = malloc(arr_size);
-    memcpy(tmp, x, arr_size);
+    mem_size = length * sizeof(double);
+    ans = malloc(mem_size);
+    tmp = malloc(mem_size);
+    memcpy(tmp, x, mem_size);
 
     for(k = 0; k < iterations; k++) {
         for(i = 0; i < length; i++) {
-            x[i] = mavg1d(tmp, length, i, window);
+            ans[i] = mavg1d(tmp, length, i, window);
         }
-        memcpy(tmp, x, arr_size); 
+        memcpy(tmp, ans, mem_size); 
     }
 
     free(tmp);
+
+    return ans;
 }
 
-void kz(double *x, int dim, const int *size, const int *window,
-        int iterations)
+double *kz(const double *x, int dim, const int *size, const int *window,
+           int iterations)
 {
     int i;
     int *m;
+    double *ans = NULL;
 
     if (!x || !size || !window) {
         fprintf(stderr, "kz(): Incorrect params\n");
-        return;
+        return NULL;
     }
 
     m = malloc(dim * sizeof(int));
@@ -71,19 +76,23 @@ void kz(double *x, int dim, const int *size, const int *window,
         m[i] = floor(window[i] / 2.0);
 
     if (dim > 3) {
-        fprintf(stderr, "Too many dimensions\n");
-        return;
+        fprintf(stderr, "kza: Too many dimensions\n");
     } else if (dim == 3) {
         /*
         kz3d(x, size, m, iterations); 
         */
+        fprintf(stderr, "kza: Not yet implemented\n");
     } else if (dim == 2) {
         /*
         kz2d(x, size, m, iterations); 
         */
+        fprintf(stderr, "kza: Not yet implemented\n");
     } else if (dim == 1) {
-        kz1d(x, size[0], m[0], iterations); 
+        ans = malloc(size[0] * sizeof(double));
+        ans = kz1d(x, size[0], m[0], iterations); 
     }
 
     free(m);
+
+    return ans;
 }
