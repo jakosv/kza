@@ -18,11 +18,11 @@ static double mavg1d(const double *v, int length, int col, int w)
 
     start_col = col - w;
     if (start_col < 0)
-    start_col = 0;
+        start_col = 0;
 
     end_col = col + w + 1;
     if (end_col > length)
-    end_col = length;
+        end_col = length;
 
     for(i = start_col, z = 0, s = 0.0; i < end_col; i++) {
         if (isfinite(v[i])) {
@@ -40,11 +40,14 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 {
     int i, k;
     int mem_size;
-    double *tmp, *ans;
+    double *tmp = NULL, *ans = NULL;
 
     mem_size = length * sizeof(double);
     ans = malloc(mem_size);
     tmp = malloc(mem_size);
+    if (!ans || !tmp)
+        goto quit;
+
     memcpy(tmp, x, mem_size);
 
     for(k = 0; k < iterations; k++) {
@@ -54,7 +57,9 @@ static double *kz1d(const double *x, int length, int window, int iterations)
         memcpy(tmp, ans, mem_size); 
     }
 
-    free(tmp);
+quit:
+    if (tmp)
+        free(tmp);
 
     return ans;
 }
@@ -72,27 +77,26 @@ double *kz(const double *x, int dim, const int *size, const int *window,
     }
 
     m = malloc(dim * sizeof(int));
+    if (!m)
+        goto quit;
+
     for (i = 0; i < dim; i++)
         m[i] = floor(window[i] / 2.0);
 
-    if (dim > 3) {
-        fprintf(stderr, "kza: Too many dimensions\n");
-    } else if (dim == 3) {
-        /*
-        kz3d(x, size, m, iterations); 
-        */
-        fprintf(stderr, "kza: Not yet implemented\n");
-    } else if (dim == 2) {
-        /*
-        kz2d(x, size, m, iterations); 
-        */
-        fprintf(stderr, "kza: Not yet implemented\n");
-    } else if (dim == 1) {
+    switch (dim) {
+    case 1:
         ans = malloc(size[0] * sizeof(double));
+        if (!ans)
+            goto quit;
         ans = kz1d(x, size[0], m[0], iterations); 
+        break;
+    default:
+        fprintf(stderr, "kza: Too many dimensions\n");
     }
 
-    free(m);
+quit:
+    if (m)
+        free(m);
 
     return ans;
 }

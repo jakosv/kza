@@ -12,10 +12,10 @@ static double maximum(const double *v, int length)
 	double m;
 	int i;
 	
-	for(i = 0, m = v[0]; i < length; i++) {
+	for(i = 0, m = v[0]; i < length; i++)
         if (isfinite(v[i])) 
             m = MAX(v[i], m);
-    }
+
 	return m;
 }
 
@@ -48,72 +48,93 @@ static double adaptive(double d, double m)
 
 static double mavg1d(const double *x, int a, int b)
 {
-    double s=0.00;
+    double s = 0;
     long i, z;
 
-    for(i = a, z = 0; i < b; i++)
-    {
+    for (i = a, z = 0; i < b; i++) {
         if (isfinite(x[i])) {
             z++;
             s += x[i];
         }
     }
+
     if (z == 0) 
         return nan("");
     return s/z;
 }
 
 static double *kza1d(const double *v, int n, const double *y, int window,
-                     int iterations, int min_windown_len, double tolerance)
+                     int iterations, int min_window_len, double tolerance)
 {
     int i, mem_size;
-    double *d, *dprime;
-    double m;
-    long t, qh, qt;
-    double *tmp, *ans;
-    double eps;
+    double m, eps;
+    double *d = NULL;
+    double *dprime = NULL;
+    double *tmp = NULL;
+    double *ans = NULL;
 
     eps = tolerance;
 
     mem_size = n * sizeof(double);
+
     d = malloc(mem_size);
     dprime = malloc(mem_size);
+    if (!d || !dprime)
+        goto quit;
 
     differenced(y, d, dprime, n, window);
 
     m = maximum(d, n);
 
     tmp = malloc(mem_size);
+    if (!tmp)
+        goto quit;
+
     memcpy(tmp, v, mem_size);
 
     ans = malloc(mem_size);
+    if (!ans)
+        goto quit;
 
     for(i = 0; i < iterations; i++) {
+        long t;
         for (t = 0; t < n; t++) {
+            long wa, qh, qt;
+            wa = (int)floor(window * adaptive(d[t], m));
             if (fabs(dprime[t]) < eps) { /* dprime[t] = 0 */
-                qh = (int)floor(window * adaptive(d[t], m));
-                qt = (int)floor(window * adaptive(d[t], m));
+                qh = wa;
+                qt = wa;
             } else if (dprime[t] < 0) {
                 qh = window;
-                qt = (int)floor(window * adaptive(d[t], m));
+                qt = wa;
             } else {
-                qh = (int)floor(window * adaptive(d[t], m));
+                qh = wa;
                 qt = window;
             }
-            qt = ((qt) < min_windown_len) ? min_windown_len : qt;
-            qh = ((qh) < min_windown_len) ? min_windown_len : qh;
+
+            if (qt < min_window_len)
+                qt = min_window_len;
+            if (qh < min_window_len)
+                qh = min_window_len;
 
             /* check bounds */
-            qh = (qh > n-t-1) ? n-t-1 : qh; /* head past end of series */
-            qt = (qt > t) ? t : qt;  	        		
+            if (qh > n-t-1)
+                qh = n-t-1; /* head past end of series */
+            if (qt > t)
+                qt = t;
+
             ans[t] = mavg1d(tmp, t-qt, t+qh+1); 
         }
         memcpy(tmp, ans, mem_size);
     }
 
-    free(tmp);
-    free(d);
-    free(dprime);
+quit:
+    if (tmp)
+        free(tmp);
+    if (d)
+        free(d);
+    if (dprime)
+        free(dprime);
 
     return ans;
 }
@@ -137,6 +158,8 @@ double *kza(const double *x, int dim, const int *size, const double *y,
 
     mem_size = size[0] * sizeof(double);
     kz_ans = malloc(mem_size);
+    if (!kz_ans)
+        return NULL;
 
     if (!y) {
         memcpy(kz_ans, x, mem_size);
