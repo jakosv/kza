@@ -1,6 +1,6 @@
 LIBNAME = libkza
-CFLAGS = -Wall -fPIC
-LDFLAGS = -lm
+CFLAGS = -Wall -fPIC #-DPARALLEL -DTIMER -DSPEED
+LDFLAGS = -lm -lpthread
 OBJMODULES = kz.o kza.o
 
 .PHONY: clean

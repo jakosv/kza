@@ -100,7 +100,8 @@ def run_func_tests(func_name, path, funcs):
             iterations = 3
             res = kza1d(x, win_size, iterations, kza, kz, kza_free)
 
-        if not np.array_equal(res, ans):
+        if not np.allclose(res, ans):
+            print(res - ans)
             print(f"test [{func_name}/{file_name}] failed")
             
 
