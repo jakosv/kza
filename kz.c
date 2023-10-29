@@ -9,8 +9,10 @@
 #include <sys/time.h>
 #endif
 
-#ifdef PARALLEL
+#ifdef KZ_PARALLEL
 #include <pthread.h>
+
+enum { max_threads_cnt = 4, min_thread_task_size = 10 };
 
 struct thread_args {
     int start_col, end_col;
@@ -83,8 +85,7 @@ static double mavg1d(const double *v, int length, int col, int w)
     int i, z;
     int start_col, end_col;
 
-#ifdef PARALLEL
-    enum { max_threads_cnt = 4, min_thread_task_size = 10 };
+#ifdef KZ_PARALLEL
     pthread_t th[max_threads_cnt];
     int threads_cnt, thread_task_size;
     threads_cnt = max_threads_cnt;
@@ -107,7 +108,7 @@ static double mavg1d(const double *v, int length, int col, int w)
     if (end_col > length)
         end_col = length;
 
-#ifdef PARALLEL
+#ifdef KZ_PARALLEL
     thread_task_size = (end_col - start_col) / threads_cnt;
     
     if (thread_task_size < min_thread_task_size) {
@@ -127,7 +128,7 @@ static double mavg1d(const double *v, int length, int col, int w)
         }
     }
 
-#ifdef PARALLEL
+#ifdef KZ_PARALLEL
     if (threads_cnt > 1)
         get_threads_result(th, threads_cnt-1, &s, &z);
 #endif
