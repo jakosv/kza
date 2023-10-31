@@ -12,7 +12,7 @@ static double maximum(const double *v, int length)
 	double m;
 	int i;
 	
-	for(i = 0, m = v[0]; i < length; i++)
+	for (i = 0, m = v[0]; i < length; i++)
         if (isfinite(v[i])) 
             m = MAX(v[i], m);
 
@@ -36,7 +36,7 @@ static void differenced(const double *y, double *d, double *dprime,
         d[i] = fabs(y[n-1] - y[i-q]);
 
 	/* d'(t) = d(i+1)-d(i) */
-	for(i = 0; i < n-1; i++)
+	for (i = 0; i < n-1; i++)
         dprime[i] = d[i+1] - d[i];
 	dprime[n-1] = dprime[n-2];
 }
@@ -61,6 +61,24 @@ static double mavg1d(const double *x, int a, int b)
     if (z == 0) 
         return nan("");
     return s/z;
+}
+
+static void normalize_window(int *left_window, int *right_window, int n,
+                             int time, int min_window_len)
+{
+    int right_bound;
+
+    if (*left_window < min_window_len)
+        *left_window = min_window_len;
+    if (*right_window < min_window_len)
+        *right_window = min_window_len;
+
+    /* check bounds */
+    right_bound = n - time - 1;
+    if (*right_window > right_bound)
+        *right_window = right_bound; /* head past end of series */
+    if (*left_window > time)
+        *left_window = time;
 }
 
 static double *kza1d(const double *v, int n, const double *y, int window,
@@ -96,34 +114,29 @@ static double *kza1d(const double *v, int n, const double *y, int window,
     if (!ans)
         goto quit;
 
-    for(i = 0; i < iterations; i++) {
-        long t;
+    for (i = 0; i < iterations; i++) {
+        int t;
         for (t = 0; t < n; t++) {
-            long wa, qh, qt;
-            wa = (int)floor(window * adaptive(d[t], m));
+            int window_adaptive, left_window, right_window;
+            int left_bound, right_bound;
+            window_adaptive = (int)floor(window * adaptive(d[t], m));
             if (fabs(dprime[t]) < eps) { /* dprime[t] = 0 */
-                qh = wa;
-                qt = wa;
+                right_window = window_adaptive;
+                left_window = window_adaptive;
             } else if (dprime[t] < 0) {
-                qh = window;
-                qt = wa;
+                right_window = window;
+                left_window = window_adaptive;
             } else {
-                qh = wa;
-                qt = window;
+                right_window = window_adaptive;
+                left_window = window;
             }
 
-            if (qt < min_window_len)
-                qt = min_window_len;
-            if (qh < min_window_len)
-                qh = min_window_len;
+            normalize_window(&left_window, &right_window, n, t, 
+                             min_window_len);
+            left_bound = t - left_window;
+            right_bound = t + right_window + 1;
 
-            /* check bounds */
-            if (qh > n-t-1)
-                qh = n-t-1; /* head past end of series */
-            if (qt > t)
-                qt = t;
-
-            ans[t] = mavg1d(tmp, t-qt, t+qh+1); 
+            ans[t] = mavg1d(tmp, left_bound, right_bound); 
         }
         memcpy(tmp, ans, mem_size);
     }

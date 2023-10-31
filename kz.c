@@ -14,68 +14,19 @@
 
 enum { max_threads_cnt = 4, min_thread_task_size = 10 };
 
-struct thread_args {
-    int start_col, end_col;
-    const double *v;
+struct task_data {
+    int start_idx, end_idx;
+    int window;
+    int task_size;
+    int data_size;
+    double *data;
+    double *ans;
 };
 
-struct thread_res {
-    double s;
-    int z;
+struct thread_data {
+    pthread_t id;
+    struct task_args* args;
 };
-
-static void *thread_task(void *data)
-{
-    int i;
-    struct thread_args *args = data;
-    struct thread_res *res;
-
-    res = malloc(sizeof(*res));
-    res->s = 0;
-    res->z = 0;
-    for (i = args->start_col; i < args->end_col; i++)
-        if (isfinite(args->v[i])) {
-            res->s += args->v[i];
-            (res->z)++;
-        }
-    free(args);
-    return res;
-} 
-
-static void start_threads(pthread_t *th, int threads_cnt, int start_col,
-                          int task_size, const double *v)
-{
-    int i;
-    for (i = 0; i < threads_cnt; i++) {
-        int res;
-        struct thread_args *args; 
-
-        args = malloc(sizeof(struct thread_args));
-        args->start_col = start_col;
-        args->end_col = start_col + task_size;
-        args->v = v;
-
-        res = pthread_create(&th[i], NULL, thread_task, args);
-        if (res != 0) {
-            perror("thread_create");
-            exit(1);
-        }
-        start_col += task_size;
-    }
-}
-
-static void get_threads_result(const pthread_t *th, int threads_cnt, 
-                               double *s, int *z)
-{
-    int i;
-    for (i = 0; i < threads_cnt; i++) {
-        struct thread_res *res;
-        pthread_join(th[i], (void*)&res);
-        *s += res->s;
-        *z += res->z;
-        free(res);
-    }
-}
 
 #endif
 
@@ -84,12 +35,6 @@ static double mavg1d(const double *v, int length, int col, int w)
     double s;
     int i, z;
     int start_col, end_col;
-
-#ifdef KZ_PARALLEL
-    pthread_t th[max_threads_cnt];
-    int threads_cnt, thread_task_size;
-    threads_cnt = max_threads_cnt;
-#endif
 
     if (!v) {
         fprintf(stderr, "mavg1d(): Incorrect params\n");
@@ -108,17 +53,6 @@ static double mavg1d(const double *v, int length, int col, int w)
     if (end_col > length)
         end_col = length;
 
-#ifdef KZ_PARALLEL
-    thread_task_size = (end_col - start_col) / threads_cnt;
-    
-    if (thread_task_size < min_thread_task_size) {
-        threads_cnt = 1;
-    } else {
-        start_threads(th, threads_cnt-1, start_col, thread_task_size, v);
-        start_col += (threads_cnt-1) * thread_task_size;
-    }
-#endif
-
     s = 0;
     z = 0;
     for (i = start_col; i < end_col; i++) {
@@ -128,21 +62,96 @@ static double mavg1d(const double *v, int length, int col, int w)
         }
     }
 
-#ifdef KZ_PARALLEL
-    if (threads_cnt > 1)
-        get_threads_result(th, threads_cnt-1, &s, &z);
-#endif
-
     if (z == 0) 
         return nan("");
     return s/z;
 }
+
+#ifdef KZ_PARALLEL
+
+static void *thread_task(void *data)
+{
+    int i;
+    struct task_data *args = data;
+
+    for (i = args->start_idx; i < args->end_idx; i++) {
+        args->ans[i] = mavg1d(args->data, args->data_size, i, args->window);
+    }
+
+    return NULL;
+} 
+
+static void init_tasks(struct task_data **tasks, int tasks_cnt,
+                       int task_size, int window, int data_size)
+{
+    int i, start_idx;
+    start_idx = 0;
+    for (i = 0; i < tasks_cnt; i++) {
+        struct task_data *task;
+
+        task = malloc(sizeof(struct task_data));
+        task->start_idx = start_idx;
+        task->end_idx = start_idx + task_size;
+        task->window = window;
+        task->data_size = data_size;
+        task->data = NULL;
+        task->ans = NULL;
+
+        tasks[i] = task;
+
+        start_idx = task->end_idx;
+    }
+
+}
+
+static void start_threads(pthread_t *th, int threads_cnt,
+                          struct task_data **tasks, double *data, double *ans)
+{
+    int i;
+    for (i = 0; i < threads_cnt; i++) {
+        int res;
+
+        tasks[i]->data = data;
+        tasks[i]->ans = ans;
+
+        res = pthread_create(&th[i], NULL, thread_task, tasks[i]);
+        if (res != 0) {
+            perror("thread_create");
+            exit(1);
+        }
+    }
+}
+
+static void wait_threads(const pthread_t *th, int threads_cnt)
+{
+    int i;
+    for (i = 0; i < threads_cnt; i++) {
+        pthread_join(th[i], NULL);
+    }
+}
+
+static void free_tasks(struct task_data **tasks, int tasks_cnt)
+{
+    int i;
+    for (i = 0; i < tasks_cnt; i++) {
+        free(tasks[i]);
+    }
+}
+
+#endif
 
 static double *kz1d(const double *x, int length, int window, int iterations)
 {
     int i, k;
     int mem_size;
     double *tmp = NULL, *ans = NULL;
+
+#ifdef KZ_PARALLEL
+    pthread_t th[max_threads_cnt-1];
+    struct task_data *tasks[max_threads_cnt-1];
+    int threads_cnt, thread_task_size;
+    threads_cnt = max_threads_cnt;
+#endif
 
     mem_size = length * sizeof(double);
     ans = malloc(mem_size);
@@ -152,12 +161,43 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
     memcpy(tmp, x, mem_size);
 
+#ifdef KZ_PARALLEL
+    thread_task_size = length / threads_cnt;
+    
+    if (thread_task_size < min_thread_task_size) {
+        threads_cnt = 1;
+    } else {
+        init_tasks(tasks, threads_cnt-1, thread_task_size, window, length);
+    }
+#endif
+
     for (k = 0; k < iterations; k++) {
+#ifdef KZ_PARALLEL
+        if (threads_cnt > 1) {
+            start_threads(th, threads_cnt-1, tasks, tmp, ans);
+        } 
+
+        for (i = (threads_cnt-1)*thread_task_size; i < length; i++) {
+            ans[i] = mavg1d(tmp, length, i, window);
+        }
+#else
         for (i = 0; i < length; i++) {
             ans[i] = mavg1d(tmp, length, i, window);
         }
+#endif
+
+#ifdef KZ_PARALLEL
+        if (threads_cnt > 1)
+            wait_threads(th, threads_cnt-1);
+#endif
+
         memcpy(tmp, ans, mem_size); 
     }
+
+#ifdef KZ_PARALLEL
+        if (threads_cnt > 1)
+            free_tasks(tasks, threads_cnt-1);
+#endif
 
 quit:
     if (tmp)
@@ -208,7 +248,7 @@ double *kz(const double *x, int dim, const int *size, const int *window,
         secs = elapsed_time / usecs_in_sec;
         msecs = elapsed_time % usecs_in_sec;
         msecs /= usecs_in_msec;
-        printf("elapsed time %lds, %ldms\n", secs, msecs);
+        printf("elapsed time %lds, %ldms (%ldusec)\n", secs, msecs, elapsed_time);
 #endif
         break;
     default:
