@@ -200,8 +200,7 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 #endif
 
 quit:
-    if (tmp)
-        free(tmp);
+    free(tmp);
 
     return ans;
 }
@@ -256,8 +255,7 @@ double *kz(const double *x, int dim, const int *size, const int *window,
     }
 
 quit:
-    if (win_size)
-        free(win_size);
+    free(win_size);
 
     return ans;
 }

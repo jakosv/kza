@@ -142,12 +142,9 @@ static double *kza1d(const double *v, int n, const double *y, int window,
     }
 
 quit:
-    if (tmp)
-        free(tmp);
-    if (d)
-        free(d);
-    if (dprime)
-        free(dprime);
+    free(tmp);
+    free(d);
+    free(dprime);
 
     return ans;
 }
