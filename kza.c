@@ -100,6 +100,7 @@ static double *kza1d(const double *v, int n, const double *y, int window,
     if (!d || !dprime)
         goto quit;
 
+    memset(dprime, 0, mem_size);
     differenced(y, d, dprime, n, window);
 
     m = maximum(d, n);

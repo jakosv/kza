@@ -1,5 +1,5 @@
 LIBNAME = libkza.so
-CFLAGS = -Wall -fPIC
+CFLAGS = -Wall -fPIC -O2
 LDFLAGS = -lm
 OBJMODULES = kz.o kza.o
 
