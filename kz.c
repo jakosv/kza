@@ -23,11 +23,6 @@ struct task_data {
     double *ans;
 };
 
-struct thread_data {
-    pthread_t id;
-    struct task_args* args;
-};
-
 #endif
 
 static double mavg1d(const double *v, int length, int col, int w)
@@ -42,12 +37,8 @@ static double mavg1d(const double *v, int length, int col, int w)
     }
 
     start_col = col - w;
-#ifdef SPEED_HACKS
-    start_col *= (start_col > 0);
-#else
     if (start_col < 0)
         start_col = 0;
-#endif
 
     end_col = col + w + 1;
     if (end_col > length)
@@ -62,8 +53,10 @@ static double mavg1d(const double *v, int length, int col, int w)
         }
     }
 
+    /*
     if (z == 0) 
         return nan("");
+    */
     return s/z;
 }
 
@@ -82,7 +75,8 @@ static void *thread_task(void *data)
 } 
 
 static void init_tasks(struct task_data **tasks, int tasks_cnt,
-                       int task_size, int window, int data_size)
+                       int task_size, int window, int data_size, double *data,
+                       double *ans)
 {
     int i, start_idx;
     start_idx = 0;
@@ -94,8 +88,8 @@ static void init_tasks(struct task_data **tasks, int tasks_cnt,
         task->end_idx = start_idx + task_size;
         task->window = window;
         task->data_size = data_size;
-        task->data = NULL;
-        task->ans = NULL;
+        task->data = data;
+        task->ans = ans;
 
         tasks[i] = task;
 
@@ -105,14 +99,11 @@ static void init_tasks(struct task_data **tasks, int tasks_cnt,
 }
 
 static void start_threads(pthread_t *th, int threads_cnt,
-                          struct task_data **tasks, double *data, double *ans)
+                          struct task_data **tasks)
 {
     int i;
     for (i = 0; i < threads_cnt; i++) {
         int res;
-
-        tasks[i]->data = data;
-        tasks[i]->ans = ans;
 
         res = pthread_create(&th[i], NULL, thread_task, tasks[i]);
         if (res != 0) {
@@ -167,14 +158,15 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     if (thread_task_size < min_thread_task_size) {
         threads_cnt = 1;
     } else {
-        init_tasks(tasks, threads_cnt-1, thread_task_size, window, length);
+        init_tasks(tasks, threads_cnt-1, thread_task_size, window, length,
+                   tmp, ans);
     }
 #endif
 
     for (k = 0; k < iterations; k++) {
 #ifdef KZ_PARALLEL
         if (threads_cnt > 1) {
-            start_threads(th, threads_cnt-1, tasks, tmp, ans);
+            start_threads(th, threads_cnt-1, tasks);
         } 
 
         for (i = (threads_cnt-1)*thread_task_size; i < length; i++) {
