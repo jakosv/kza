@@ -11,13 +11,14 @@
 
 #ifdef KZ_PARALLEL
 #include <pthread.h>
+#include <semaphore.h>
 
 enum { max_threads_cnt = 4, min_thread_task_size = 10 };
 
 struct task_data {
-    int start_idx, end_idx;
+    int thread_task_size;
+    int iterations;
     int window;
-    int task_size;
     int data_size;
     double *data;
     double *ans;
@@ -25,7 +26,10 @@ struct task_data {
 
 struct thread_data {
     pthread_t id;
-    struct task_args* args;
+    struct task_data *task;
+    int start_idx, end_idx;
+    sem_t *done_work;
+    sem_t can_work;
 };
 
 #endif
@@ -42,12 +46,8 @@ static double mavg1d(const double *v, int length, int col, int w)
     }
 
     start_col = col - w;
-#ifdef SPEED_HACKS
-    start_col *= (start_col > 0);
-#else
     if (start_col < 0)
         start_col = 0;
-#endif
 
     end_col = col + w + 1;
     if (end_col > length)
@@ -62,59 +62,56 @@ static double mavg1d(const double *v, int length, int col, int w)
         }
     }
 
+    /*
     if (z == 0) 
         return nan("");
+    */
     return s/z;
 }
 
 #ifdef KZ_PARALLEL
 
-static void *thread_task(void *data)
+static void *worker(void *data)
 {
-    int i;
-    struct task_data *args = data;
+    int k;
+    struct thread_data *thread_data = data;
+    struct task_data *task = thread_data->task;
 
-    for (i = args->start_idx; i < args->end_idx; i++) {
-        args->ans[i] = mavg1d(args->data, args->data_size, i, args->window);
+    for (k = 0; k < task->iterations; k++) {
+        int i;
+        
+        sem_wait(&thread_data->can_work);
+
+        for (i = thread_data->start_idx; i < thread_data->end_idx; i++) {
+            task->ans[i] = mavg1d(task->data, task->data_size, i, 
+                                  task->window);
+        }
+
+        sem_post(thread_data->done_work);
     }
 
     return NULL;
 } 
 
-static void init_tasks(struct task_data **tasks, int tasks_cnt,
-                       int task_size, int window, int data_size)
+static void start_threads(struct thread_data *th, int threads_cnt,
+                          struct task_data *task, sem_t *done_work)
 {
     int i, start_idx;
+
     start_idx = 0;
-    for (i = 0; i < tasks_cnt; i++) {
-        struct task_data *task;
-
-        task = malloc(sizeof(struct task_data));
-        task->start_idx = start_idx;
-        task->end_idx = start_idx + task_size;
-        task->window = window;
-        task->data_size = data_size;
-        task->data = NULL;
-        task->ans = NULL;
-
-        tasks[i] = task;
-
-        start_idx = task->end_idx;
-    }
-
-}
-
-static void start_threads(pthread_t *th, int threads_cnt,
-                          struct task_data **tasks, double *data, double *ans)
-{
-    int i;
     for (i = 0; i < threads_cnt; i++) {
         int res;
 
-        tasks[i]->data = data;
-        tasks[i]->ans = ans;
-
-        res = pthread_create(&th[i], NULL, thread_task, tasks[i]);
+        th[i].task = task;
+        th[i].done_work = done_work;
+        th[i].start_idx = start_idx;
+        th[i].end_idx = start_idx + task->thread_task_size;
+        if (th[i].end_idx > task->data_size)
+            th[i].end_idx = task->data_size;
+        else
+            start_idx = th[i].end_idx;
+        sem_init(&th[i].can_work, 0, 1);
+        res = pthread_create(&th[i].id, NULL, worker, (void*)&th[i]);
         if (res != 0) {
             perror("thread_create");
             exit(1);
@@ -122,20 +119,43 @@ static void start_threads(pthread_t *th, int threads_cnt,
     }
 }
 
-static void wait_threads(const pthread_t *th, int threads_cnt)
+static void free_threads(struct thread_data *th, int threads_cnt)
 {
     int i;
     for (i = 0; i < threads_cnt; i++) {
-        pthread_join(th[i], NULL);
+        pthread_join(th[i].id, NULL);
+        sem_destroy(&th[i].can_work);
     }
 }
 
-static void free_tasks(struct task_data **tasks, int tasks_cnt)
+static void threads_server_loop(struct thread_data *th, int threads_cnt,
+                                struct task_data *task)
 {
-    int i;
-    for (i = 0; i < tasks_cnt; i++) {
-        free(tasks[i]);
-    }
+    int k, done_workers, data_mem_size;
+    sem_t done_work_sem;
+
+    sem_init(&done_work_sem, 0, 0);
+
+    start_threads(th, threads_cnt, task, &done_work_sem);
+
+    data_mem_size = task->data_size * sizeof(double);
+    done_workers = 0;
+    k = 0;
+    while (k < task->iterations) {
+        sem_wait(&done_work_sem);
+        done_workers++; 
+        if (done_workers == threads_cnt) {
+            int i;
+            memcpy(task->data, task->ans, data_mem_size); 
+            done_workers = 0;
+            for (i = 0; i < threads_cnt; i++)
+                sem_post(&th[i].can_work);
+            k++;
+        }
+    } 
+
+    free_threads(th, threads_cnt);
+    sem_destroy(&done_work_sem);
 }
 
 #endif
@@ -147,9 +167,9 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     double *tmp = NULL, *ans = NULL;
 
 #ifdef KZ_PARALLEL
-    pthread_t th[max_threads_cnt-1];
-    struct task_data *tasks[max_threads_cnt-1];
+    struct thread_data th[max_threads_cnt];
     int threads_cnt, thread_task_size;
+
     threads_cnt = max_threads_cnt;
 #endif
 
@@ -162,42 +182,35 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     memcpy(tmp, x, mem_size);
 
 #ifdef KZ_PARALLEL
-    thread_task_size = length / threads_cnt;
-    
+    thread_task_size = (length + threads_cnt-1) / threads_cnt;
+
     if (thread_task_size < min_thread_task_size) {
         threads_cnt = 1;
-    } else {
-        init_tasks(tasks, threads_cnt-1, thread_task_size, window, length);
-    }
-#endif
-
-    for (k = 0; k < iterations; k++) {
-#ifdef KZ_PARALLEL
-        if (threads_cnt > 1) {
-            start_threads(th, threads_cnt-1, tasks, tmp, ans);
-        } 
-
-        for (i = (threads_cnt-1)*thread_task_size; i < length; i++) {
-            ans[i] = mavg1d(tmp, length, i, window);
+        for (k = 0; k < iterations; k++) {
+            for (i = 0; i < length; i++) {
+                ans[i] = mavg1d(tmp, length, i, window);
+            }
+            memcpy(tmp, ans, mem_size); 
         }
+    } else {
+        struct task_data task;
+        task.thread_task_size = thread_task_size;
+        task.iterations = iterations;
+        task.window = window;
+        task.data_size = length;
+        task.data = tmp;
+        task.ans = ans;
+        threads_server_loop(th, threads_cnt, &task);
+    }
 #else
+    for (k = 0; k < iterations; k++) {
         for (i = 0; i < length; i++) {
             ans[i] = mavg1d(tmp, length, i, window);
         }
-#endif
-
-#ifdef KZ_PARALLEL
-        if (threads_cnt > 1)
-            wait_threads(th, threads_cnt-1);
-#endif
-
         memcpy(tmp, ans, mem_size); 
     }
-
-#ifdef KZ_PARALLEL
-        if (threads_cnt > 1)
-            free_tasks(tasks, threads_cnt-1);
 #endif
+
 
 quit:
     free(tmp);
