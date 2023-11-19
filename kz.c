@@ -40,7 +40,7 @@ static double mavg1d(const double *pref_sum, const int *pref_finite_cnt,
                      int length, int col, int w)
 {
     double s;
-    int i, z;
+    int z;
     int start_col, end_col;
 
     start_col = col - w;
@@ -147,14 +147,13 @@ static void free_threads(struct thread_data *th, int threads_cnt)
 static void threads_server_loop(struct thread_data *th, int threads_cnt,
                                 struct task_data *task)
 {
-    int k, done_workers, data_mem_size;
+    int k, done_workers;
     sem_t done_work_sem;
 
     sem_init(&done_work_sem, 0, 0);
 
     start_threads(th, threads_cnt, task, &done_work_sem);
 
-    data_mem_size = task->data_size * sizeof(double);
     done_workers = 0;
     k = 0;
     while (k < task->iterations) {
@@ -179,7 +178,6 @@ static void threads_server_loop(struct thread_data *th, int threads_cnt,
 
 static double *kz1d(const double *x, int length, int window, int iterations)
 {
-    int i, k;
     int mem_size;
     double *data = NULL, *ans = NULL, *pref_sum = NULL;
     int *pref_finite_cnt = NULL;
@@ -187,8 +185,8 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 #ifdef KZ_PARALLEL
     struct thread_data th[max_threads_cnt];
     int threads_cnt, thread_task_size;
-
-    threads_cnt = max_threads_cnt;
+#else
+    int i, k;
 #endif
 
     mem_size = length * sizeof(double);
@@ -202,6 +200,7 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     update_iteration_data(data, x, length, pref_sum, pref_finite_cnt);
 
 #ifdef KZ_PARALLEL
+    threads_cnt = max_threads_cnt;
     thread_task_size = (length + threads_cnt-1) / threads_cnt;
 
     struct task_data task;
