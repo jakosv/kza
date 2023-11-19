@@ -30,7 +30,7 @@ static double mavg1d(const double *pref_sum, const int *pref_finite_cnt,
                      int length, int col, int w)
 {
     double s;
-    int i, z;
+    int z;
     int start_col, end_col;
 
     if (!pref_sum) {
