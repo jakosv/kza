@@ -13,15 +13,17 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-enum { max_threads_cnt = 4, min_thread_task_size = 10 };
+enum { max_threads_cnt = 2, min_thread_task_size = 10 };
 
 struct task_data {
     int thread_task_size;
     int iterations;
     int window;
     int data_size;
-    double *data;
     double *ans;
+    double *data;
+    double *pref_sum;
+    int *pref_finite_cnt;
 };
 
 struct thread_data {
@@ -34,16 +36,12 @@ struct thread_data {
 
 #endif
 
-static double mavg1d(const double *v, int length, int col, int w)
+static double mavg1d(const double *pref_sum, const int *pref_finite_cnt,
+                     int length, int col, int w)
 {
     double s;
     int i, z;
     int start_col, end_col;
-
-    if (!v) {
-        fprintf(stderr, "mavg1d(): Incorrect params\n");
-        return 0;
-    }
 
     start_col = col - w;
     if (start_col < 0)
@@ -53,20 +51,38 @@ static double mavg1d(const double *v, int length, int col, int w)
     if (end_col > length)
         end_col = length;
 
-    s = 0;
-    z = 0;
-    for (i = start_col; i < end_col; i++) {
-        if (isfinite(v[i])) {
-            z++;
-            s += v[i];
-        }
-    }
-
+    s = (pref_sum[end_col] - pref_sum[start_col]);
+    z = (pref_finite_cnt[end_col] - pref_finite_cnt[start_col]);
     /*
     if (z == 0) 
         return nan("");
     */
     return s/z;
+}
+
+static void calc_prefix_sum(const double *data, int size, double *pref_sum, 
+                            int *pref_finite_cnt)
+{
+    int i;
+
+    pref_sum[0] = 0;
+    pref_finite_cnt[0] = 0;
+    for (i = 1; i <= size; i++) {
+        pref_sum[i] = pref_sum[i-1];
+        pref_finite_cnt[i] = pref_finite_cnt[i-1];
+        if (isfinite(data[i-1])) {
+            pref_sum[i] += data[i-1];
+            ++pref_finite_cnt[i];
+        }
+    }
+}
+
+
+static void update_iteration_data(double *new, const double *old, int size,
+                                  double *pref_sum, int *pref_finite_cnt)
+{
+    memcpy(new, old, size * sizeof(double)); 
+    calc_prefix_sum(new, size, pref_sum, pref_finite_cnt);
 }
 
 #ifdef KZ_PARALLEL
@@ -83,8 +99,8 @@ static void *worker(void *data)
         sem_wait(&thread_data->can_work);
 
         for (i = thread_data->start_idx; i < thread_data->end_idx; i++) {
-            task->ans[i] = mavg1d(task->data, task->data_size, i, 
-                                  task->window);
+            task->ans[i] = mavg1d(task->pref_sum, task->pref_finite_cnt,
+                                  task->data_size, i, task->window);
         }
 
         sem_post(thread_data->done_work);
@@ -146,7 +162,8 @@ static void threads_server_loop(struct thread_data *th, int threads_cnt,
         done_workers++; 
         if (done_workers == threads_cnt) {
             int i;
-            memcpy(task->data, task->ans, data_mem_size); 
+            update_iteration_data(task->data, task->ans, task->data_size,
+                                  task->pref_sum, task->pref_finite_cnt);
             done_workers = 0;
             for (i = 0; i < threads_cnt; i++)
                 sem_post(&th[i].can_work);
@@ -164,7 +181,8 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 {
     int i, k;
     int mem_size;
-    double *tmp = NULL, *ans = NULL;
+    double *data = NULL, *ans = NULL, *pref_sum = NULL;
+    int *pref_finite_cnt = NULL;
 
 #ifdef KZ_PARALLEL
     struct thread_data th[max_threads_cnt];
@@ -175,45 +193,43 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
     mem_size = length * sizeof(double);
     ans = malloc(mem_size);
-    tmp = malloc(mem_size);
-    if (!ans || !tmp)
+    data = malloc(mem_size);
+    pref_sum = malloc((length+1) * sizeof(double));
+    pref_finite_cnt = malloc((length+1) * sizeof(int));
+    if (!ans || !data || !pref_sum || !pref_finite_cnt)
         goto quit;
 
-    memcpy(tmp, x, mem_size);
+    update_iteration_data(data, x, length, pref_sum, pref_finite_cnt);
 
 #ifdef KZ_PARALLEL
     thread_task_size = (length + threads_cnt-1) / threads_cnt;
 
-    if (thread_task_size < min_thread_task_size) {
-        threads_cnt = 1;
-        for (k = 0; k < iterations; k++) {
-            for (i = 0; i < length; i++) {
-                ans[i] = mavg1d(tmp, length, i, window);
-            }
-            memcpy(tmp, ans, mem_size); 
-        }
-    } else {
-        struct task_data task;
-        task.thread_task_size = thread_task_size;
-        task.iterations = iterations;
-        task.window = window;
-        task.data_size = length;
-        task.data = tmp;
-        task.ans = ans;
-        threads_server_loop(th, threads_cnt, &task);
-    }
+    struct task_data task;
+    task.thread_task_size = thread_task_size;
+    task.iterations = iterations;
+    task.window = window;
+    task.data_size = length;
+    task.data = data;
+    task.ans = ans;
+    task.pref_sum = pref_sum;
+    task.pref_finite_cnt = pref_finite_cnt;
+
+    threads_server_loop(th, threads_cnt, &task);
+
 #else
     for (k = 0; k < iterations; k++) {
         for (i = 0; i < length; i++) {
-            ans[i] = mavg1d(tmp, length, i, window);
+            ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
         }
-        memcpy(tmp, ans, mem_size); 
+        update_iteration_data(data, ans, length, pref_sum, pref_finite_cnt);
     }
 #endif
 
 
 quit:
-    free(tmp);
+    free(data);
+    free(pref_sum);
+    free(pref_finite_cnt);
 
     return ans;
 }
