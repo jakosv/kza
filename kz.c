@@ -12,26 +12,28 @@
 #ifdef KZ_PARALLEL
 #include <pthread.h>
 
-enum { max_threads_cnt = 4, min_thread_task_size = 10 };
+enum { max_threads_cnt = 2 };
 
 struct task_data {
     int start_idx, end_idx;
     int window;
     int task_size;
     int data_size;
-    double *data;
     double *ans;
+    double *pref_sum;
+    int *pref_finite_cnt;
 };
 
 #endif
 
-static double mavg1d(const double *v, int length, int col, int w)
+static double mavg1d(const double *pref_sum, const int *pref_finite_cnt, 
+                     int length, int col, int w)
 {
     double s;
     int i, z;
     int start_col, end_col;
 
-    if (!v) {
+    if (!pref_sum) {
         fprintf(stderr, "mavg1d(): Incorrect params\n");
         return 0;
     }
@@ -44,15 +46,8 @@ static double mavg1d(const double *v, int length, int col, int w)
     if (end_col > length)
         end_col = length;
 
-    s = 0;
-    z = 0;
-    for (i = start_col; i < end_col; i++) {
-        if (isfinite(v[i])) {
-            z++;
-            s += v[i];
-        }
-    }
-
+    s = (pref_sum[end_col] - pref_sum[start_col]);
+    z = (pref_finite_cnt[end_col] - pref_finite_cnt[start_col]);
     /*
     if (z == 0) 
         return nan("");
@@ -68,15 +63,16 @@ static void *thread_task(void *data)
     struct task_data *args = data;
 
     for (i = args->start_idx; i < args->end_idx; i++) {
-        args->ans[i] = mavg1d(args->data, args->data_size, i, args->window);
+        args->ans[i] = mavg1d(args->pref_sum, args->pref_finite_cnt,
+                              args->data_size, i, args->window);
     }
 
     return NULL;
 } 
 
-static void init_tasks(struct task_data **tasks, int tasks_cnt,
-                       int task_size, int window, int data_size, double *data,
-                       double *ans)
+static void init_tasks(struct task_data **tasks, int tasks_cnt, int task_size,
+                       int window, int data_size, double *ans, 
+                       double *pref_sum, int *pref_finite_cnt)
 {
     int i, start_idx;
     start_idx = 0;
@@ -88,8 +84,9 @@ static void init_tasks(struct task_data **tasks, int tasks_cnt,
         task->end_idx = start_idx + task_size;
         task->window = window;
         task->data_size = data_size;
-        task->data = data;
         task->ans = ans;
+        task->pref_sum = pref_sum;
+        task->pref_finite_cnt = pref_finite_cnt;
 
         tasks[i] = task;
 
@@ -131,11 +128,29 @@ static void free_tasks(struct task_data **tasks, int tasks_cnt)
 
 #endif
 
+static void calc_prefix_sum(const double *data, int size, double *pref_sum, 
+                            int *pref_finite_cnt)
+{
+    int i;
+
+    pref_sum[0] = 0;
+    pref_finite_cnt[0] = 0;
+    for (i = 1; i <= size; i++) {
+        pref_sum[i] = pref_sum[i-1];
+        pref_finite_cnt[i] = pref_finite_cnt[i-1];
+        if (isfinite(data[i-1])) {
+            pref_sum[i] += data[i-1];
+            ++pref_finite_cnt[i];
+        }
+    }
+}
+
 static double *kz1d(const double *x, int length, int window, int iterations)
 {
     int i, k;
     int mem_size;
-    double *tmp = NULL, *ans = NULL;
+    double *data = NULL, *ans = NULL, *pref_sum = NULL;
+    int *pref_finite_cnt = NULL;
 
 #ifdef KZ_PARALLEL
     pthread_t th[max_threads_cnt-1];
@@ -146,53 +161,51 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
     mem_size = length * sizeof(double);
     ans = malloc(mem_size);
-    tmp = malloc(mem_size);
-    if (!ans || !tmp)
+    data = malloc(mem_size);
+    pref_sum = malloc((length+1) * sizeof(double));
+    pref_finite_cnt = malloc((length+1) * sizeof(int));
+    if (!ans || !data || !pref_sum || !pref_finite_cnt)
         goto quit;
 
-    memcpy(tmp, x, mem_size);
+    memcpy(data, x, mem_size);
+    calc_prefix_sum(data, length, pref_sum, pref_finite_cnt);
 
 #ifdef KZ_PARALLEL
     thread_task_size = length / threads_cnt;
     
-    if (thread_task_size < min_thread_task_size) {
-        threads_cnt = 1;
-    } else {
-        init_tasks(tasks, threads_cnt-1, thread_task_size, window, length,
-                   tmp, ans);
-    }
+    init_tasks(tasks, threads_cnt-1, thread_task_size, window, length,
+               ans, pref_sum, pref_finite_cnt);
 #endif
 
     for (k = 0; k < iterations; k++) {
 #ifdef KZ_PARALLEL
-        if (threads_cnt > 1) {
-            start_threads(th, threads_cnt-1, tasks);
-        } 
+        start_threads(th, threads_cnt-1, tasks);
 
         for (i = (threads_cnt-1)*thread_task_size; i < length; i++) {
-            ans[i] = mavg1d(tmp, length, i, window);
+            ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
         }
 #else
         for (i = 0; i < length; i++) {
-            ans[i] = mavg1d(tmp, length, i, window);
+            ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
         }
 #endif
 
 #ifdef KZ_PARALLEL
-        if (threads_cnt > 1)
-            wait_threads(th, threads_cnt-1);
+        wait_threads(th, threads_cnt-1);
 #endif
 
-        memcpy(tmp, ans, mem_size); 
+        memcpy(data, ans, mem_size); 
+        calc_prefix_sum(data, length, pref_sum, pref_finite_cnt);
     }
 
 #ifdef KZ_PARALLEL
-        if (threads_cnt > 1)
-            free_tasks(tasks, threads_cnt-1);
+        free_tasks(tasks, threads_cnt-1);
 #endif
 
 quit:
-    free(tmp);
+    free(data);
+    free(pref_sum);
+    free(pref_finite_cnt);
 
     return ans;
 }
