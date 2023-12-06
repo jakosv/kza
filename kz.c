@@ -11,8 +11,38 @@
 
 #ifdef KZ_PARALLEL
 #include <pthread.h>
+#ifdef _WIN32
+#include <windows.h>
+#elif MACOS
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#else
+#include <unistd.h>
+#endif
 
-enum { max_threads_cnt = 2 };
+int getNumCores() {
+#ifdef WIN32
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return sysinfo.dwNumberOfProcessors;
+#elif MACOS
+    int nm[2];
+    size_t len = 4;
+    uint32_t count;
+
+    nm[0] = CTL_HW; nm[1] = HW_AVAILCPU;
+    sysctl(nm, 2, &count, &len, NULL, 0);
+
+    if(count < 1) {
+        nm[1] = HW_NCPU;
+        sysctl(nm, 2, &count, &len, NULL, 0);
+        if(count < 1) { count = 1; }
+    }
+    return count;
+#else
+    return sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+}
 
 struct task_data {
     int start_idx, end_idx;
@@ -153,6 +183,8 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     int *pref_finite_cnt = NULL;
 
 #ifdef KZ_PARALLEL
+    int max_threads_cnt = getNumCores();
+    printf("Number of cores: %d\n",max_threads_cnt);
     pthread_t th[max_threads_cnt-1];
     struct task_data *tasks[max_threads_cnt-1];
     int threads_cnt, thread_task_size;
