@@ -7,14 +7,14 @@ OBJMODULES = kz.o kza.o
 
 all: library
 
-debug: CFLAGS += -DTIMER
+debug: CFLAGS += -DTIMER -DDEBUG
 debug: library
 
 kz_parallel: CFLAGS += -DKZ_PARALLEL
 kz_parallel: LDFLAGS += -lpthread
 kz_parallel: library
 
-kz_parallel_debug: CFLAGS += -DKZ_PARALLEL -DTIMER
+kz_parallel_debug: CFLAGS += -DKZ_PARALLEL -DTIMER -DDEBUG
 kz_parallel_debug: LDFLAGS += -lpthread
 kz_parallel_debug: library
 

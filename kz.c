@@ -11,6 +11,7 @@
 
 #ifdef KZ_PARALLEL
 #include <pthread.h>
+
 #ifdef _WIN32
 #include <windows.h>
 #elif MACOS
@@ -20,7 +21,7 @@
 #include <unistd.h>
 #endif
 
-int getNumCores() {
+int get_num_cores() {
 #ifdef WIN32
     SYSTEM_INFO sysinfo;
     GetSystemInfo(&sysinfo);
@@ -33,10 +34,12 @@ int getNumCores() {
     nm[0] = CTL_HW; nm[1] = HW_AVAILCPU;
     sysctl(nm, 2, &count, &len, NULL, 0);
 
-    if(count < 1) {
+    if (count < 1) {
         nm[1] = HW_NCPU;
         sysctl(nm, 2, &count, &len, NULL, 0);
-        if(count < 1) { count = 1; }
+        if (count < 1) {
+            count = 1;
+        }
     }
     return count;
 #else
@@ -183,12 +186,20 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     int *pref_finite_cnt = NULL;
 
 #ifdef KZ_PARALLEL
-    int max_threads_cnt = getNumCores();
-    printf("Number of cores: %d\n",max_threads_cnt);
-    pthread_t th[max_threads_cnt-1];
-    struct task_data *tasks[max_threads_cnt-1];
-    int threads_cnt, thread_task_size;
-    threads_cnt = max_threads_cnt;
+    pthread_t *th;
+    struct task_data **tasks;
+    int thread_task_size, max_threads_cnt, tasks_cnt;
+
+    max_threads_cnt = get_num_cores();
+
+#ifdef DEBUG
+    printf("Number of cores: %d\n", max_threads_cnt);
+#endif
+
+    tasks_cnt = max_threads_cnt - 1;
+    th = malloc(tasks_cnt * sizeof(pthread_t));
+    tasks = malloc(tasks_cnt * sizeof(struct task_data*));
+
 #endif
 
     mem_size = length * sizeof(double);
@@ -203,17 +214,17 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     calc_prefix_sum(data, length, pref_sum, pref_finite_cnt);
 
 #ifdef KZ_PARALLEL
-    thread_task_size = length / threads_cnt;
+    thread_task_size = length / tasks_cnt;
     
-    init_tasks(tasks, threads_cnt-1, thread_task_size, window, length,
+    init_tasks(tasks, tasks_cnt, thread_task_size, window, length,
                ans, pref_sum, pref_finite_cnt);
 #endif
 
     for (k = 0; k < iterations; k++) {
 #ifdef KZ_PARALLEL
-        start_threads(th, threads_cnt-1, tasks);
+        start_threads(th, tasks_cnt, tasks);
 
-        for (i = (threads_cnt-1)*thread_task_size; i < length; i++) {
+        for (i = (tasks_cnt)*thread_task_size; i < length; i++) {
             ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
         }
 #else
@@ -223,7 +234,7 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 #endif
 
 #ifdef KZ_PARALLEL
-        wait_threads(th, threads_cnt-1);
+        wait_threads(th, tasks_cnt);
 #endif
 
         memcpy(data, ans, mem_size); 
@@ -231,13 +242,18 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     }
 
 #ifdef KZ_PARALLEL
-        free_tasks(tasks, threads_cnt-1);
+    free_tasks(tasks, tasks_cnt);
 #endif
 
 quit:
     free(data);
     free(pref_sum);
     free(pref_finite_cnt);
+
+#ifdef KZ_PARALLEL
+    free(th);
+    free(tasks);
+#endif
 
     return ans;
 }
