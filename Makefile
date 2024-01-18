@@ -1,5 +1,5 @@
 LIBNAME = libkza.so
-CFLAGS = -Wall -fPIC -O2
+CFLAGS = -Wall -fPIC
 LDFLAGS = -lm
 OBJMODULES = kz.o kza.o
 
@@ -10,15 +10,23 @@ all: library
 debug: CFLAGS += -DTIMER -DDEBUG
 debug: library
 
-kz_parallel: CFLAGS += -DKZ_PARALLEL
-kz_parallel: LDFLAGS += -lpthread
-kz_parallel: library
+kz_threads_strategy_1: CFLAGS += -DKZ_THREADS_STRATEGY_1
+kz_threads_strategy_1: LDFLAGS += -lpthread
+kz_threads_strategy_1: library
 
-kz_parallel_debug: CFLAGS += -DKZ_PARALLEL -DTIMER -DDEBUG
-kz_parallel_debug: LDFLAGS += -lpthread
-kz_parallel_debug: library
+kz_threads_strategy_1_debug: CFLAGS += -DKZ_THREADS_STRATEGY_1 -DTIMER \
+									   -DDEBUG
+kz_threads_strategy_1_debug: LDFLAGS += -lpthread
+kz_threads_strategy_1_debug: library
 
-speed_hacks: CFLAGS += -DSPEED library
+kz_threads_strategy_2: CFLAGS += -DKZ_THREADS_STRATEGY_1
+kz_threads_strategy_2: LDFLAGS += -lpthread
+kz_threads_strategy_2: library
+
+kz_threads_strategy_2_debug: CFLAGS += -DKZ_THREADS_STRATEGY_2 -DTIMER \
+									   -DDEBUG
+kz_threads_strategy_2_debug: LDFLAGS += -lpthread
+kz_threads_strategy_2_debug: library
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
