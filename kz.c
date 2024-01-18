@@ -76,22 +76,24 @@ struct task_data {
 #endif
 
 static double mavg1d(const double *pref_sum, const int *pref_finite_cnt,
-                     int length, int col, int w)
+                     int data_size, int window_center, int w)
 {
     double s;
     int z;
-    int start_col, end_col;
+    int start_idx, end_idx;
 
-    start_col = col - w;
-    if (start_col < 0)
-        start_col = 0;
+    /* window length is 2*w+1 */
+    start_idx = (window_center+1) - w; /* the first window value index */
+    if (start_idx < 0)
+        start_idx = 0;
 
-    end_col = col + w + 1;
-    if (end_col > length)
-        end_col = length;
+    end_idx = (window_center+1) + w; /* the last window value index */
+    if (end_idx > data_size)
+        end_idx = data_size;
 
-    s = (pref_sum[end_col] - pref_sum[start_col]);
-    z = (pref_finite_cnt[end_col] - pref_finite_cnt[start_col]);
+    /* (window sum) = (sum containig window) - (sum before window) */
+    s = (pref_sum[end_idx] - pref_sum[start_idx-1]);
+    z = (pref_finite_cnt[end_idx] - pref_finite_cnt[start_idx-1]);
     /*
     if (z == 0) 
         return nan("");

@@ -63,22 +63,22 @@ static double mavg1d(const double *x, int a, int b)
     return s/z;
 }
 
-static void normalize_window(int *left_window, int *right_window, int n,
-                             int time, int min_window_len)
+static void normalize_window(int *left_win, int *right_win, int n, 
+                             int window_center, int min_window_len)
 {
-    int right_bound;
+    int max_right_bound;
 
-    if (*left_window < min_window_len)
-        *left_window = min_window_len;
-    if (*right_window < min_window_len)
-        *right_window = min_window_len;
+    if (*left_win < min_window_len)
+        *left_win = min_window_len;
+    if (*right_win < min_window_len)
+        *right_win = min_window_len;
 
     /* check bounds */
-    right_bound = n - time - 1;
-    if (*right_window > right_bound)
-        *right_window = right_bound; /* head past end of series */
-    if (*left_window > time)
-        *left_window = time;
+    max_right_bound = n - window_center - 1;
+    if (*right_win > max_right_bound)
+        *right_win = max_right_bound;
+    if (*left_win > window_center)
+        *left_win = window_center;
 }
 
 static double *kza1d(const double *v, int n, const double *y, int window,
@@ -118,24 +118,23 @@ static double *kza1d(const double *v, int n, const double *y, int window,
     for (i = 0; i < iterations; i++) {
         int t;
         for (t = 0; t < n; t++) {
-            int window_adaptive, left_window, right_window;
+            int window_adaptive, right_win, left_win;
             int left_bound, right_bound;
             window_adaptive = (int)floor(window * adaptive(d[t], m));
             if (fabs(dprime[t]) < eps) { /* dprime[t] = 0 */
-                right_window = window_adaptive;
-                left_window = window_adaptive;
+                left_win = window_adaptive;
+                right_win = window_adaptive;
             } else if (dprime[t] < 0) {
-                right_window = window;
-                left_window = window_adaptive;
+                right_win = window;
+                left_win = window_adaptive;
             } else {
-                right_window = window_adaptive;
-                left_window = window;
+                right_win = window_adaptive;
+                left_win = window;
             }
 
-            normalize_window(&left_window, &right_window, n, t, 
-                             min_window_len);
-            left_bound = t - left_window;
-            right_bound = t + right_window + 1;
+            normalize_window(&left_win, &right_win, n, t, min_window_len);
+            left_bound = t - left_win;
+            right_bound = t + right_win + 1;
 
             ans[t] = mavg1d(tmp, left_bound, right_bound); 
         }
