@@ -28,6 +28,13 @@ kz_threads_strategy_2_debug: CFLAGS += -DKZ_THREADS_STRATEGY_2 -DTIMER \
 kz_threads_strategy_2_debug: LDFLAGS += -lpthread
 kz_threads_strategy_2_debug: library
 
+kza_threads_strategy_1: CFLAGS += -DKZA_THREADS_STRATEGY_1
+kza_threads_strategy_1: kz_threads_strategy_1
+
+kza_threads_strategy_1_debug: CFLAGS += -DKZA_THREADS_STRATEGY_1 -DTIMER \
+									    -DDEBUG
+kza_threads_strategy_1_debug: kz_threads_strategy_1_debug
+
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
