@@ -12,49 +12,11 @@
 
 #if defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2)
 #include <pthread.h>
+#include <sys/sysinfo.h>
 
 #  ifdef KZ_THREADS_STRATEGY_1
 #include <semaphore.h>
 #  endif
-
-#  ifdef _WIN32
-#include <windows.h>
-
-#  elifdef MACOS
-#include <sys/param.h>
-#include <sys/sysctl.h>
-
-#  else
-#include <unistd.h>
-#  endif
-
-int get_num_cores() {
-#  ifdef WIN32
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-    return sysinfo.dwNumberOfProcessors;
-
-#  elifdef MACOS
-    int nm[2];
-    size_t len = 4;
-    uint32_t count;
-
-    nm[0] = CTL_HW; nm[1] = HW_AVAILCPU;
-    sysctl(nm, 2, &count, &len, NULL, 0);
-
-    if (count < 1) {
-        nm[1] = HW_NCPU;
-        sysctl(nm, 2, &count, &len, NULL, 0);
-        if (count < 1) {
-            count = 1;
-        }
-    }
-    return count;
-
-#  else
-    return sysconf(_SC_NPROCESSORS_ONLN);
-#  endif
-}
 
 struct task_data {
     int window;
@@ -67,8 +29,9 @@ struct task_data {
 #  ifdef KZ_THREADS_STRATEGY_1
     int iterations;
     double *data;
+#  endif
 
-#  elifdef KZ_THREADS_STRATEGY_2
+#  ifdef KZ_THREADS_STRATEGY_2
     int start_idx, end_idx;
 #  endif
 };
@@ -235,8 +198,9 @@ static void threads_server_loop(struct thread_data *th, int threads_cnt,
     wait_threads(th, threads_cnt);
     sem_destroy(&done_work_sem);
 }
+#endif
 
-#elifdef KZ_THREADS_STRATEGY_2
+#ifdef KZ_THREADS_STRATEGY_2
 
 static void *worker(void *data)
 {
@@ -309,23 +273,24 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     int mem_size;
     double *ans = NULL, *pref_sum = NULL;
     int *pref_finite_cnt = NULL;
-
 #ifdef KZ_THREADS_STRATEGY_1
     struct thread_data *th;
     struct task_data task;
     double *data;
-#elifdef KZ_THREADS_STRATEGY_2
+#endif
+#ifdef KZ_THREADS_STRATEGY_2
     int i, k, tasks_cnt;
     pthread_t *th;
     struct task_data **tasks;
-#else
+#endif
+#if !(defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2))
     int i, k;
 #endif
 
 #if defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2)
     int task_size, threads_cnt;
 
-    threads_cnt = get_num_cores();
+    threads_cnt = get_nprocs();
 
 #  ifdef DEBUG
     printf("Number of cores: %d\n", threads_cnt);
@@ -336,8 +301,9 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     data = malloc(length * sizeof(double));
     if (!data)
         goto quit;
+#  endif
 
-#  elifdef KZ_THREADS_STRATEGY_2
+#  ifdef KZ_THREADS_STRATEGY_2
     tasks_cnt = threads_cnt - 1;
     th = malloc(tasks_cnt * sizeof(pthread_t));
     tasks = malloc(tasks_cnt * sizeof(struct task_data*));
@@ -367,8 +333,9 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     task.pref_finite_cnt = pref_finite_cnt;
 
     threads_server_loop(th, threads_cnt, &task);
+#endif
 
-#elifdef KZ_THREADS_STRATEGY_2
+#ifdef KZ_THREADS_STRATEGY_2
     task_size = length / tasks_cnt;
     
     init_tasks(tasks, tasks_cnt, task_size, window, length,
@@ -384,8 +351,9 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
         calc_prefix_sum(ans, length, pref_sum, pref_finite_cnt);
     }
+#endif
 
-#else
+#if !(defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2))
     for (k = 0; k < iterations; k++) {
         for (i = 0; i < length; i++)
             ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
@@ -400,14 +368,15 @@ quit:
 
 #if defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2)
     free(th);
-#  ifdef KZ_THREADS_STRATEGY_1
+#ifdef KZ_THREADS_STRATEGY_1
     free(data);
-#  elifdef KZ_THREADS_STRATEGY_2
+#endif
+#  ifdef KZ_THREADS_STRATEGY_2
     if (tasks != NULL) {
         free_tasks(tasks, tasks_cnt);
         free(tasks);
     }
-#  endif
+#endif
 #endif
 
     return ans;
