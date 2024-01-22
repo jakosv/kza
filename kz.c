@@ -20,7 +20,6 @@
 
 struct task_data {
     int window;
-    int task_size;
     int data_size;
     double *ans;
     double *pref_sum;
@@ -28,6 +27,7 @@ struct task_data {
 
 #  ifdef KZ_THREADS_CLIENT_SERVER
     int iterations;
+    int task_size;
     double *data;
 
 #  elif KZ_THREADS_LOOP
@@ -273,13 +273,13 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     int *pref_finite_cnt = NULL;
 
 #ifdef KZ_THREADS_CLIENT_SERVER
-    struct thread_data *th;
+    struct thread_data *th = NULL;
     struct task_data task;
-    double *data;
+    double *data = NULL;
 #elif KZ_THREADS_LOOP
     int i, k, tasks_cnt;
-    pthread_t *th;
-    struct task_data **tasks;
+    pthread_t *th = NULL;
+    struct task_data **tasks = NULL;
 #else
     int i, k;
 #endif
@@ -296,13 +296,15 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 #  ifdef KZ_THREADS_CLIENT_SERVER
     th = malloc(threads_cnt * sizeof(struct thread_data));
     data = malloc(length * sizeof(double));
-    if (!data)
+    if (!th || !data)
         goto quit;
 
 #  elif KZ_THREADS_LOOP
     tasks_cnt = threads_cnt - 1;
     th = malloc(tasks_cnt * sizeof(pthread_t));
     tasks = malloc(tasks_cnt * sizeof(struct task_data*));
+    if (!th || !tasks)
+        goto quit;
 #  endif
 
 #endif
