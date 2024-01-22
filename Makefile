@@ -10,30 +10,30 @@ all: library
 debug: CFLAGS += -DTIMER -DDEBUG
 debug: library
 
-kz_threads_strategy_1: CFLAGS += -DKZ_THREADS_STRATEGY_1
-kz_threads_strategy_1: LDFLAGS += -lpthread
-kz_threads_strategy_1: library
+kz_threads_client_server: CFLAGS += -DKZ_THREADS_CLIENT_SERVER
+kz_threads_client_server: LDFLAGS += -lpthread
+kz_threads_client_server: library
 
-kz_threads_strategy_1_debug: CFLAGS += -DKZ_THREADS_STRATEGY_1 -DTIMER \
-									   -DDEBUG
-kz_threads_strategy_1_debug: LDFLAGS += -lpthread
-kz_threads_strategy_1_debug: library
+kz_threads_client_server_debug: CFLAGS += -DKZ_THREADS_CLIENT_SERVER -DTIMER \
+				-DDEBUG
+kz_threads_client_server_debug: LDFLAGS += -lpthread
+kz_threads_client_server_debug: library
 
-kz_threads_strategy_2: CFLAGS += -DKZ_THREADS_STRATEGY_1
-kz_threads_strategy_2: LDFLAGS += -lpthread
-kz_threads_strategy_2: library
+kz_threads_loop: CFLAGS += -DKZ_THREADS_CLIENT_SERVER
+kz_threads_loop: LDFLAGS += -lpthread
+kz_threads_loop: library
 
-kz_threads_strategy_2_debug: CFLAGS += -DKZ_THREADS_STRATEGY_2 -DTIMER \
-									   -DDEBUG
-kz_threads_strategy_2_debug: LDFLAGS += -lpthread
-kz_threads_strategy_2_debug: library
+kz_threads_loop_debug: CFLAGS += -DKZ_THREADS_LOOP -DTIMER \
+		       -DDEBUG
+kz_threads_loop_debug: LDFLAGS += -lpthread
+kz_threads_loop_debug: library
 
-kza_threads_strategy_1: CFLAGS += -DKZA_THREADS_STRATEGY_1
-kza_threads_strategy_1: kz_threads_strategy_1
+kza_threads_client_server: CFLAGS += -DKZA_THREADS_STRATEGY_1
+kza_threads_client_server: kz_threads_client_server
 
-kza_threads_strategy_1_debug: CFLAGS += -DKZA_THREADS_STRATEGY_1 -DTIMER \
-									    -DDEBUG
-kza_threads_strategy_1_debug: kz_threads_strategy_1_debug
+kza_threads_client_server_debug: CFLAGS += -DKZA_THREADS_STRATEGY_1 -DTIMER \
+                                 -DDEBUG
+kza_threads_client_server_debug: kz_threads_client_server_debug
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@

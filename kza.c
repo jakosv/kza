@@ -35,7 +35,7 @@ struct thread_data {
     pthread_t id;
     struct task_data *task;
     int start_idx, end_idx;
-    sem_t *done_work_sem;
+    sem_t *finished_workers_sem;
     sem_t can_work_sem;
 };
 
@@ -143,14 +143,14 @@ static void *worker(void *data)
         perform_task_iteration(task, thread_data->start_idx,
                                thread_data->end_idx);
 
-        sem_post(thread_data->done_work_sem);
+        sem_post(thread_data->finished_workers_sem);
     }
 
     return NULL;
 } 
 
 static void start_threads(struct thread_data *th, int threads_cnt,
-                          struct task_data *task, sem_t *done_work_sem)
+                          struct task_data *task, sem_t *finished_workers_sem)
 {
     int i, start_idx;
 
@@ -159,7 +159,7 @@ static void start_threads(struct thread_data *th, int threads_cnt,
         int res;
 
         th[i].task = task;
-        th[i].done_work_sem = done_work_sem;
+        th[i].finished_workers_sem = finished_workers_sem;
         th[i].start_idx = start_idx;
         th[i].end_idx = start_idx + task->task_size;
 

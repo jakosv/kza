@@ -10,11 +10,11 @@
 #endif
 
 
-#if defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2)
+#if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
 #include <pthread.h>
 #include <sys/sysinfo.h>
 
-#  ifdef KZ_THREADS_STRATEGY_1
+#  ifdef KZ_THREADS_CLIENT_SERVER
 #include <semaphore.h>
 #  endif
 
@@ -26,12 +26,11 @@ struct task_data {
     double *pref_sum;
     int *pref_finite_cnt;
 
-#  ifdef KZ_THREADS_STRATEGY_1
+#  ifdef KZ_THREADS_CLIENT_SERVER
     int iterations;
     double *data;
-#  endif
 
-#  ifdef KZ_THREADS_STRATEGY_2
+#  elif KZ_THREADS_LOOP
     int start_idx, end_idx;
 #  endif
 };
@@ -82,7 +81,7 @@ static void calc_prefix_sum(const double *data, int size, double *pref_sum,
 }
 
 
-#if defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2)
+#if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
 
 static void perform_task_iteration(struct task_data *task, int start_idx,
                                    int end_idx)
@@ -97,14 +96,14 @@ static void perform_task_iteration(struct task_data *task, int start_idx,
 #endif
 
 
-#ifdef KZ_THREADS_STRATEGY_1
+#ifdef KZ_THREADS_CLIENT_SERVER
 
 struct thread_data {
     pthread_t id;
     struct task_data *task;
     int start_idx, end_idx;
-    sem_t *done_work;
-    sem_t can_work;
+    sem_t *finished_workers_sem;
+    sem_t can_work_sem;
 };
 
 static void *worker(void *data)
@@ -116,19 +115,19 @@ static void *worker(void *data)
 
     for (k = 0; k < task->iterations; k++) {
         
-        sem_wait(&thread_data->can_work);
+        sem_wait(&thread_data->can_work_sem);
 
         perform_task_iteration(task, thread_data->start_idx,
                                thread_data->end_idx);
 
-        sem_post(thread_data->done_work);
+        sem_post(thread_data->finished_workers_sem);
     }
 
     return NULL;
 } 
 
 static void start_threads(struct thread_data *th, int threads_cnt,
-                          struct task_data *task, sem_t *done_work)
+                          struct task_data *task, sem_t *finished_workers_sem)
 {
     int i, start_idx;
 
@@ -137,14 +136,14 @@ static void start_threads(struct thread_data *th, int threads_cnt,
         int res;
 
         th[i].task = task;
-        th[i].done_work = done_work;
+        th[i].finished_workers_sem = finished_workers_sem;
         th[i].start_idx = start_idx;
         th[i].end_idx = start_idx + task->task_size;
         if (th[i].end_idx > task->data_size)
             th[i].end_idx = task->data_size;
         else
             start_idx = th[i].end_idx;
-        sem_init(&th[i].can_work, 0, 1);
+        sem_init(&th[i].can_work_sem, 0, 1);
         res = pthread_create(&th[i].id, NULL, worker, (void*)&th[i]);
         if (res != 0) {
             perror("thread_create");
@@ -158,7 +157,7 @@ static void wait_threads(struct thread_data *th, int threads_cnt)
     int i;
     for (i = 0; i < threads_cnt; i++) {
         pthread_join(th[i].id, NULL);
-        sem_destroy(&th[i].can_work);
+        sem_destroy(&th[i].can_work_sem);
     }
 }
 
@@ -172,35 +171,34 @@ static void update_iteration_data(double *new, const double *old, int size,
 static void threads_server_loop(struct thread_data *th, int threads_cnt,
                                 struct task_data *task)
 {
-    int k, done_workers;
-    sem_t done_work_sem;
+    int iter, idle_workers_count;
+    sem_t finished_workers_sem;
 
-    sem_init(&done_work_sem, 0, 0);
+    sem_init(&finished_workers_sem, 0, 0);
 
-    start_threads(th, threads_cnt, task, &done_work_sem);
+    start_threads(th, threads_cnt, task, &finished_workers_sem);
 
-    done_workers = 0;
-    k = 0;
-    while (k < task->iterations) {
-        sem_wait(&done_work_sem);
-        done_workers++; 
-        if (done_workers == threads_cnt) {
+    idle_workers_count = 0;
+    iter = 0;
+    while (iter < task->iterations) {
+        sem_wait(&finished_workers_sem);
+        idle_workers_count++; 
+        if (idle_workers_count == threads_cnt) {
             int i;
             update_iteration_data(task->data, task->ans, task->data_size,
                                   task->pref_sum, task->pref_finite_cnt);
-            done_workers = 0;
+            idle_workers_count = 0;
             for (i = 0; i < threads_cnt; i++)
-                sem_post(&th[i].can_work);
-            k++;
+                sem_post(&th[i].can_work_sem);
+            iter++;
         }
     } 
 
     wait_threads(th, threads_cnt);
-    sem_destroy(&done_work_sem);
+    sem_destroy(&finished_workers_sem);
 }
-#endif
 
-#ifdef KZ_THREADS_STRATEGY_2
+#elif KZ_THREADS_LOOP
 
 static void *worker(void *data)
 {
@@ -273,21 +271,20 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     int mem_size;
     double *ans = NULL, *pref_sum = NULL;
     int *pref_finite_cnt = NULL;
-#ifdef KZ_THREADS_STRATEGY_1
+
+#ifdef KZ_THREADS_CLIENT_SERVER
     struct thread_data *th;
     struct task_data task;
     double *data;
-#endif
-#ifdef KZ_THREADS_STRATEGY_2
+#elif KZ_THREADS_LOOP
     int i, k, tasks_cnt;
     pthread_t *th;
     struct task_data **tasks;
-#endif
-#if !(defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2))
+#else
     int i, k;
 #endif
 
-#if defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2)
+#if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
     int task_size, threads_cnt;
 
     threads_cnt = get_nprocs();
@@ -296,14 +293,13 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     printf("Number of cores: %d\n", threads_cnt);
 #  endif
 
-#  ifdef KZ_THREADS_STRATEGY_1
+#  ifdef KZ_THREADS_CLIENT_SERVER
     th = malloc(threads_cnt * sizeof(struct thread_data));
     data = malloc(length * sizeof(double));
     if (!data)
         goto quit;
-#  endif
 
-#  ifdef KZ_THREADS_STRATEGY_2
+#  elif KZ_THREADS_LOOP
     tasks_cnt = threads_cnt - 1;
     th = malloc(tasks_cnt * sizeof(pthread_t));
     tasks = malloc(tasks_cnt * sizeof(struct task_data*));
@@ -320,7 +316,7 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
     calc_prefix_sum(x, length, pref_sum, pref_finite_cnt);
 
-#ifdef KZ_THREADS_STRATEGY_1
+#ifdef KZ_THREADS_CLIENT_SERVER
     task_size = (length + threads_cnt-1) / threads_cnt;
 
     task.task_size = task_size;
@@ -333,9 +329,8 @@ static double *kz1d(const double *x, int length, int window, int iterations)
     task.pref_finite_cnt = pref_finite_cnt;
 
     threads_server_loop(th, threads_cnt, &task);
-#endif
 
-#ifdef KZ_THREADS_STRATEGY_2
+#elif KZ_THREADS_LOOP
     task_size = length / tasks_cnt;
     
     init_tasks(tasks, tasks_cnt, task_size, window, length,
@@ -351,9 +346,8 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
         calc_prefix_sum(ans, length, pref_sum, pref_finite_cnt);
     }
-#endif
 
-#if !(defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2))
+#else
     for (k = 0; k < iterations; k++) {
         for (i = 0; i < length; i++)
             ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
@@ -366,17 +360,16 @@ quit:
     free(pref_sum);
     free(pref_finite_cnt);
 
-#if defined(KZ_THREADS_STRATEGY_1) || defined(KZ_THREADS_STRATEGY_2)
+#if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
     free(th);
-#ifdef KZ_THREADS_STRATEGY_1
+#  ifdef KZ_THREADS_CLIENT_SERVER
     free(data);
-#endif
-#  ifdef KZ_THREADS_STRATEGY_2
+#  elif KZ_THREADS_LOOP
     if (tasks != NULL) {
         free_tasks(tasks, tasks_cnt);
         free(tasks);
     }
-#endif
+#  endif
 #endif
 
     return ans;
