@@ -20,15 +20,19 @@
 
 struct task_data {
     int window;
+    int task_size;
     int data_size;
     double *ans;
+
+#  ifdef PREFIX_SUM
     double *pref_sum;
     int *pref_finite_cnt;
+#  else
+    double *data;
+#  endif
 
 #  ifdef KZ_THREADS_CLIENT_SERVER
     int iterations;
-    int task_size;
-    double *data;
 
 #  elif KZ_THREADS_LOOP
     int start_idx, end_idx;
@@ -37,6 +41,7 @@ struct task_data {
 
 #endif
 
+#ifdef PREFIX_SUM
 static double mavg1d(const double *pref_sum, const int *pref_finite_cnt,
                      int data_size, int window_center, int w)
 {
@@ -45,22 +50,18 @@ static double mavg1d(const double *pref_sum, const int *pref_finite_cnt,
     int start_idx, end_idx;
 
     /* window length is 2*w+1 */
-    start_idx = (window_center+1) - w; /* the first window value index */
-    if (start_idx < 0)
-        start_idx = 0;
+    start_idx = (window_center+1) - w - 1; /* index of value before window */
+    start_idx *= (start_idx > 0);
 
     end_idx = (window_center+1) + w; /* the last window value index */
     if (end_idx > data_size)
         end_idx = data_size;
 
     /* (window sum) = (sum containig window) - (sum before window) */
-    s = (pref_sum[end_idx] - pref_sum[start_idx-1]);
-    z = (pref_finite_cnt[end_idx] - pref_finite_cnt[start_idx-1]);
-    /*
-    if (z == 0) 
-        return nan("");
-    */
-    return s/z;
+    s = (pref_sum[end_idx] - pref_sum[start_idx]);
+    z = (pref_finite_cnt[end_idx] - pref_finite_cnt[start_idx]);
+
+    return s / (double)z;
 }
 
 static void calc_prefix_sum(const double *data, int size, double *pref_sum, 
@@ -71,14 +72,37 @@ static void calc_prefix_sum(const double *data, int size, double *pref_sum,
     pref_sum[0] = 0;
     pref_finite_cnt[0] = 0;
     for (i = 1; i <= size; i++) {
-        pref_sum[i] = pref_sum[i-1];
-        pref_finite_cnt[i] = pref_finite_cnt[i-1];
-        if (isfinite(data[i-1])) {
-            pref_sum[i] += data[i-1];
-            ++pref_finite_cnt[i];
-        }
+        int is_finite_flag = isfinite(data[i-1]);
+        pref_sum[i] = pref_sum[i-1] + is_finite_flag * data[i-1];
+        pref_finite_cnt[i] = pref_finite_cnt[i-1] + is_finite_flag;
     }
 }
+
+#else
+static double mavg1d(const double *x, int data_size, int window_center, int w)
+{
+    double s = 0;
+    long z;
+    int i, start_idx, end_idx;
+
+    /* window length is 2*w+1 */
+    start_idx = window_center - w;
+    start_idx *= (start_idx > 0);
+
+    end_idx = window_center + w + 1;
+    if (end_idx > data_size)
+        end_idx = data_size;
+
+    z = 0;
+    for (i = start_idx; i < end_idx; i++) {
+        int is_finite_flag = isfinite(x[i]);
+        z += is_finite_flag;
+        s += is_finite_flag * x[i];
+    }
+
+    return s / (double)z;
+}
+#endif
 
 
 #if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
@@ -88,8 +112,12 @@ static void perform_task_iteration(struct task_data *task, int start_idx,
 {
     int i;
     for (i = start_idx; i < end_idx; i++) {
+#  ifdef PREFIX_SUM
         task->ans[i] = mavg1d(task->pref_sum, task->pref_finite_cnt,
                               task->data_size, i, task->window);
+#  else
+        task->ans[i] = mavg1d(task->data, task->data_size, i, task->window);
+#  endif
     }
 }
 
@@ -123,7 +151,7 @@ static void *worker(void *data)
         sem_post(thread_data->finished_workers_sem);
     }
 
-    return NULL;
+    pthread_exit(NULL);
 } 
 
 static void start_threads(struct thread_data *th, int threads_cnt,
@@ -161,13 +189,6 @@ static void wait_threads(struct thread_data *th, int threads_cnt)
     }
 }
 
-static void update_iteration_data(double *new, const double *old, int size,
-                                  double *pref_sum, int *pref_finite_cnt)
-{
-    memcpy(new, old, size * sizeof(double)); 
-    calc_prefix_sum(new, size, pref_sum, pref_finite_cnt);
-}
-
 static void threads_server_loop(struct thread_data *th, int threads_cnt,
                                 struct task_data *task)
 {
@@ -185,8 +206,12 @@ static void threads_server_loop(struct thread_data *th, int threads_cnt,
         idle_workers_count++; 
         if (idle_workers_count == threads_cnt) {
             int i;
-            update_iteration_data(task->data, task->ans, task->data_size,
-                                  task->pref_sum, task->pref_finite_cnt);
+#  ifdef PREFIX_SUM
+            calc_prefix_sum(task->ans, task->data_size, task->pref_sum, 
+                            task->pref_finite_cnt);
+#  else
+            memcpy(task->data, task->ans, task->data_size * sizeof(double));
+#  endif
             idle_workers_count = 0;
             for (i = 0; i < threads_cnt; i++)
                 sem_post(&th[i].can_work_sem);
@@ -205,32 +230,23 @@ static void *worker(void *data)
     struct task_data *task = (struct task_data *)data;
     perform_task_iteration(task, task->start_idx, task->end_idx);
 
-    return NULL;
+    pthread_exit(NULL);
 } 
 
-static void init_tasks(struct task_data **tasks, int tasks_cnt, int task_size,
-                       int window, int data_size, double *ans, 
-                       double *pref_sum, int *pref_finite_cnt)
+static void init_tasks(struct task_data **tasks, int tasks_cnt,
+                       const struct task_data *task)
 {
     int i, start_idx;
     start_idx = 0;
     for (i = 0; i < tasks_cnt; i++) {
-        struct task_data *task;
-
-        task = malloc(sizeof(struct task_data));
-        task->start_idx = start_idx;
-        task->end_idx = start_idx + task_size;
-        task->window = window;
-        task->data_size = data_size;
-        task->ans = ans;
-        task->pref_sum = pref_sum;
-        task->pref_finite_cnt = pref_finite_cnt;
-
-        tasks[i] = task;
-
-        start_idx = task->end_idx;
+        tasks[i] = malloc(sizeof(struct task_data));
+        memcpy(tasks[i], task, sizeof(struct task_data));
+        tasks[i]->start_idx = start_idx;
+        tasks[i]->end_idx = start_idx + task->task_size;
+        start_idx = tasks[i]->end_idx;
     }
 }
+
 
 static void start_threads(pthread_t *th, int threads_cnt,
                           struct task_data **tasks)
@@ -269,13 +285,16 @@ static void free_tasks(struct task_data **tasks, int tasks_cnt)
 static double *kz1d(const double *x, int length, int window, int iterations)
 {
     int mem_size;
-    double *ans = NULL, *pref_sum = NULL;
+    double *ans = NULL;
+#ifdef PREFIX_SUM
+    double *pref_sum = NULL;
     int *pref_finite_cnt = NULL;
+#else
+    double *data = NULL;
+#endif
 
 #ifdef KZ_THREADS_CLIENT_SERVER
     struct thread_data *th = NULL;
-    struct task_data task;
-    double *data = NULL;
 #elif KZ_THREADS_LOOP
     int i, k, tasks_cnt;
     pthread_t *th = NULL;
@@ -285,6 +304,7 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 #endif
 
 #if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
+    struct task_data task;
     int task_size, threads_cnt;
 
     threads_cnt = get_nprocs();
@@ -295,8 +315,7 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
 #  ifdef KZ_THREADS_CLIENT_SERVER
     th = malloc(threads_cnt * sizeof(struct thread_data));
-    data = malloc(length * sizeof(double));
-    if (!th || !data)
+    if (!th)
         goto quit;
 
 #  elif KZ_THREADS_LOOP
@@ -311,67 +330,102 @@ static double *kz1d(const double *x, int length, int window, int iterations)
 
     mem_size = length * sizeof(double);
     ans = malloc(mem_size);
+#ifdef PREFIX_SUM
     pref_sum = malloc((length+1) * sizeof(double));
     pref_finite_cnt = malloc((length+1) * sizeof(int));
     if (!ans || !pref_sum || !pref_finite_cnt)
         goto quit;
 
     calc_prefix_sum(x, length, pref_sum, pref_finite_cnt);
+#else
+    data = malloc(mem_size);
+    if (!ans || !data)
+        goto quit;
+
+    memcpy(data, x, mem_size);
+#endif
+
+
+#if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
+    task.window = window;
+    task.data_size = length;
+    task.ans = ans;
+#  ifdef PREFIX_SUM
+    task.pref_sum = pref_sum;
+    task.pref_finite_cnt = pref_finite_cnt;
+#  else
+    task.data = data;
+#  endif
+#endif
 
 #ifdef KZ_THREADS_CLIENT_SERVER
     task_size = (length + threads_cnt-1) / threads_cnt;
-
     task.task_size = task_size;
     task.iterations = iterations;
-    task.window = window;
-    task.data_size = length;
-    task.data = data;
-    task.ans = ans;
-    task.pref_sum = pref_sum;
-    task.pref_finite_cnt = pref_finite_cnt;
 
     threads_server_loop(th, threads_cnt, &task);
 
 #elif KZ_THREADS_LOOP
     task_size = length / tasks_cnt;
+    task.task_size = task_size;
+    task.start_idx = 0;
     
-    init_tasks(tasks, tasks_cnt, task_size, window, length,
-               ans, pref_sum, pref_finite_cnt);
+    init_tasks(tasks, tasks_cnt, &task);
 
     for (k = 0; k < iterations; k++) {
         start_threads(th, tasks_cnt, tasks);
 
-        for (i = (tasks_cnt)*task_size; i < length; i++)
+        for (i = (tasks_cnt)*task_size; i < length; i++) {
+#  ifdef PREFIX_SUM
             ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
+#  else
+            ans[i] = mavg1d(data, length, i, window); 
+#  endif
+        }
 
         wait_threads(th, tasks_cnt);
 
+#  ifdef PREFIX_SUM
         calc_prefix_sum(ans, length, pref_sum, pref_finite_cnt);
+#  else
+        memcpy(data, ans, mem_size);
+#  endif
     }
 
 #else
     for (k = 0; k < iterations; k++) {
-        for (i = 0; i < length; i++)
+        for (i = 0; i < length; i++) {
+#  ifdef PREFIX_SUM
             ans[i] = mavg1d(pref_sum, pref_finite_cnt, length, i, window);
+#  else
+            ans[i] = mavg1d(data, length, i, window); 
+#  endif
+        }
 
+#  ifdef PREFIX_SUM
         calc_prefix_sum(ans, length, pref_sum, pref_finite_cnt);
+#  else
+        memcpy(data, ans, mem_size);
+#  endif
     }
 #endif
 
 quit:
-    free(pref_sum);
-    free(pref_finite_cnt);
-
 #if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
     free(th);
-#  ifdef KZ_THREADS_CLIENT_SERVER
-    free(data);
-#  elif KZ_THREADS_LOOP
+#  ifdef KZ_THREADS_LOOP
     if (tasks != NULL) {
         free_tasks(tasks, tasks_cnt);
         free(tasks);
     }
 #  endif
+#endif
+
+#ifdef PREFIX_SUM
+    free(pref_sum);
+    free(pref_finite_cnt);
+#else
+    free(data);
 #endif
 
     return ans;
