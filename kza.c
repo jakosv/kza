@@ -26,21 +26,65 @@ struct task_data {
     int min_window_len;
     double max_d;
     double tolerance;
-    double *data;
     double *ans;
     double *d;
     double *dprime;
 
+#  ifdef PREFIX_SUM
+    double *pref_sum;
+    int *pref_finite_cnt;
+#  else 
+    double *data;
+#  endif
+
 #  ifdef KZA_THREADS_CLIENT_SERVER
     int iterations;
 
-#  elif KZA_THREADS_LOOP
+#  elif defined(KZA_THREADS_LOOP)
     int start_idx, end_idx;
 #  endif
 };
 
 #endif
 
+#ifdef PREFIX_SUM
+static double mavg1d(const double *pref_sum, const int *pref_finite_cnt,
+                     int data_size, int left_bound, int right_bound)
+{
+    double s;
+    int z;
+    int start_idx, end_idx;
+
+    /* pref[start_idx] = data[0] + data[1] + ... + data[left_bound] */
+    start_idx = left_bound;
+    /* pref[end_idx] = data[0] + data[1] + ... + data[right_bound] */
+    end_idx = right_bound;
+
+    /* (window sum) = (sum containig window) - (sum before window) */
+    s = (pref_sum[end_idx] - pref_sum[start_idx]);
+    z = (pref_finite_cnt[end_idx] - pref_finite_cnt[start_idx]);
+
+    return s/z;
+}
+
+static void calc_prefix_sum(const double *data, int size, double *pref_sum, 
+                            int *pref_finite_cnt)
+{
+    int i;
+
+    pref_sum[0] = 0;
+    pref_finite_cnt[0] = 0;
+    for (i = 1; i <= size; i++) {
+        pref_sum[i] = pref_sum[i-1];
+        pref_finite_cnt[i] = pref_finite_cnt[i-1];
+        if (isfinite(data[i-1])) {
+            pref_sum[i] += data[i-1];
+            ++pref_finite_cnt[i];
+        }
+    }
+}
+
+#else
 static double mavg1d(const double *x, int a, int b)
 {
     double s = 0;
@@ -57,6 +101,7 @@ static double mavg1d(const double *x, int a, int b)
         return nan("");
     return s/z;
 }
+#endif
 
 static double adaptive(double d, double m)
 {
@@ -111,13 +156,13 @@ void get_window_bounds(int *left_bound, int *right_bound,
 }
 
 
-#if defined(KZA_THREADS_CLIENT_SERVER) || defined(KZA_THREADS_LOOP)
 
+#if defined(KZA_THREADS_CLIENT_SERVER) || defined(KZA_THREADS_LOOP)
 static void perform_task_iteration(struct task_data *task, int start_idx,
                                    int end_idx)
 {
     int t;
-    for (t = start_idx; t < end_idx; t++) {
+    for (t = start_idx; t <= end_idx; t++) {
         int left_win, right_win, left_bound, right_bound;
 
         calc_adaptive_windows(&left_win, &right_win, 
@@ -126,7 +171,12 @@ static void perform_task_iteration(struct task_data *task, int start_idx,
         get_window_bounds(&left_bound, &right_bound, left_win, right_win, 
                           t, task->data_size, task->min_window_len);
 
+#  ifdef PREFIX_SUM
+        task->ans[t] = mavg1d(task->pref_sum, task->pref_finite_cnt,
+                              task->data_size, left_bound, right_bound+1);
+#  else
         task->ans[t] = mavg1d(task->data, left_bound, right_bound+1);
+#  endif
     }
 }
 
@@ -199,10 +249,13 @@ static void wait_threads(struct thread_data *th, int threads_cnt)
     }
 }
 
-static void update_iteration_data(double *new, const double *old, int size)
+#ifdef PREFIX_SUM
+static void update_iteration_data(const double *data, int size,
+                                  double *pref_sum, int *pref_finite_cnt)
 {
-    memcpy(new, old, size * sizeof(double)); 
+    calc_prefix_sum(data, size, pref_sum, pref_finite_cnt);
 }
+#endif
 
 static void threads_server_loop(struct thread_data *th, int threads_cnt,
                                 struct task_data *task)
@@ -221,7 +274,12 @@ static void threads_server_loop(struct thread_data *th, int threads_cnt,
         idle_workers_count++; 
         if (idle_workers_count == threads_cnt) {
             int i;
-            update_iteration_data(task->data, task->ans, task->data_size);
+#  ifdef PREFIX_SUM
+            update_iteration_data(task->ans, task->data_size,
+                                  task->pref_sum, task->pref_finite_cnt);
+#  else
+            memcpy(task->data, task->ans, task->data_size * sizeof(double));
+#  endif
             idle_workers_count = 0;
             for (i = 0; i < threads_cnt; i++)
                 sem_post(&th[i].can_work_sem);
@@ -331,8 +389,14 @@ static double *kza1d(const double *v, int n, const double *y, int window,
     double m;
     double *d = NULL;
     double *dprime = NULL;
-    double *tmp = NULL;
     double *ans = NULL;
+#ifdef PREFIX_SUM
+    double *pref_sum = NULL;
+    int *pref_finite_cnt = NULL;
+#else
+    double *tmp = NULL;
+#endif
+
 
 #ifdef KZA_THREADS_CLIENT_SERVER
     struct thread_data *th = NULL;
@@ -367,7 +431,6 @@ static double *kza1d(const double *v, int n, const double *y, int window,
     if (!th || !tasks)
         goto quit;
 #  endif
-
 #endif
 
     mem_size = n * sizeof(double);
@@ -382,11 +445,20 @@ static double *kza1d(const double *v, int n, const double *y, int window,
 
     m = maximum(d, n);
 
+#ifdef PREFIX_SUM
+    pref_sum = malloc((n+1) * sizeof(double));
+    pref_finite_cnt = malloc((n+1) * sizeof(int));
+    if (!pref_sum || !pref_finite_cnt)
+        goto quit;
+
+    calc_prefix_sum(v, n, pref_sum, pref_finite_cnt);
+#else
     tmp = malloc(mem_size);
     if (!tmp)
         goto quit;
 
     memcpy(tmp, v, mem_size);
+#endif
 
     ans = malloc(mem_size);
     if (!ans)
@@ -394,14 +466,19 @@ static double *kza1d(const double *v, int n, const double *y, int window,
 
 #if defined(KZA_THREADS_CLIENT_SERVER) || defined(KZA_THREADS_LOOP)
     task.window = window;
+    task.data_size = n;
     task.min_window_len = min_window_len;
     task.tolerance = tolerance;
     task.ans = ans;
-    task.data = tmp;
-    task.data_size = n;
     task.d = d;
     task.dprime = dprime;
     task.max_d = m;
+#  ifdef PREFIX_SUM
+    task.pref_sum = pref_sum;
+    task.pref_finite_cnt = pref_finite_cnt;
+#  else
+    task.data = tmp;
+#  endif
 #endif
 
 #ifdef KZA_THREADS_CLIENT_SERVER
@@ -409,7 +486,6 @@ static double *kza1d(const double *v, int n, const double *y, int window,
 
     task.task_size = task_size;
     task.iterations = iterations;
-    task.data = tmp;
 
     threads_server_loop(th, threads_cnt, &task);
 
@@ -433,11 +509,21 @@ static double *kza1d(const double *v, int n, const double *y, int window,
             get_window_bounds(&left_bound, &right_bound,
                               left_win, right_win, t, n, min_window_len);
 
+#  ifdef PREFIX_SUM
+            ans[t] = mavg1d(pref_sum, pref_finite_cnt, n, left_bound, 
+                            right_bound+1);
+#  else
             ans[t] = mavg1d(tmp, left_bound, right_bound+1); 
+#  endif
         }
 
         wait_threads(th, tasks_cnt);
+
+#  ifdef PREFIX_SUM
+        calc_prefix_sum(ans, n, pref_sum, pref_finite_cnt);
+#  else
         memcpy(tmp, ans, mem_size);
+#  endif
     }
 
 #else
@@ -451,9 +537,18 @@ static double *kza1d(const double *v, int n, const double *y, int window,
             get_window_bounds(&left_bound, &right_bound,
                               left_win, right_win, t, n, min_window_len);
 
+#  ifdef PREFIX_SUM
+            ans[t] = mavg1d(pref_sum, pref_finite_cnt, n, left_bound, 
+                            right_bound+1);
+#  else
             ans[t] = mavg1d(tmp, left_bound, right_bound+1); 
+#  endif
         }
+#  ifdef PREFIX_SUM
+        calc_prefix_sum(ans, n, pref_sum, pref_finite_cnt);
+#  else
         memcpy(tmp, ans, mem_size);
+#  endif
     }
 #endif
 
@@ -468,7 +563,13 @@ quit:
 #  endif
 #endif
 
+#ifdef PREFIX_SUM
+    free(pref_sum);
+    free(pref_finite_cnt);
+#else
     free(tmp);
+#endif
+
     free(d);
     free(dprime);
 

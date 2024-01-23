@@ -10,31 +10,38 @@ all: library
 debug: CFLAGS += -DTIMER -DDEBUG
 debug: library
 
-kz_threads_client_server: CFLAGS += -DKZ_THREADS_CLIENT_SERVER
-kz_threads_client_server: LDFLAGS += -lpthread
-kz_threads_client_server: library
+prefix_sum: CFLAGS += -DPREFIX_SUM 
+prefix_sum: library
 
-kz_threads_client_server_debug: CFLAGS += -DTIMER -DDEBUG
-kz_threads_client_server_debug: kz_threads_client_server
+prefix_sum-debug: CFLAGS += -DDEBUG -DTIMER 
+prefix_sum-debug: prefix_sum 
 
-kz_threads_loop: CFLAGS += -DKZ_THREADS_LOOP
-kz_threads_loop: LDFLAGS += -lpthread
-kz_threads_loop: library
+threads_client_server: CFLAGS += -DKZ_THREADS_CLIENT_SERVER \
+								 -DKZA_THREADS_CLIENT_SERVER
+threads_client_server: LDFLAGS += -lpthread
+threads_client_server: library
 
-kz_threads_loop_debug: CFLAGS += -DTIMER -DDEBUG
-kz_threads_loop_debug: kz_threads_loop
+threads_client_server-debug: CFLAGS += -DTIMER -DDEBUG
+threads_client_server-debug: threads_client_server
 
-kza_threads_client_server: CFLAGS += -DKZA_THREADS_CLIENT_SERVER
-kza_threads_client_server: kz_threads_client_server
+threads_loop: CFLAGS += -DKZ_THREADS_LOOP -DKZA_THREADS_LOOP
+threads_loop: LDFLAGS += -lpthread
+threads_loop: library
 
-kza_threads_client_server_debug: CFLAGS += -DTIMER -DDEBUG
-kza_threads_client_server_debug: kz_threads_client_server_debug
+threads_loop-debug: CFLAGS += -DTIMER -DDEBUG
+threads_loop-debug: threads_loop
 
-kza_threads_loop: CFLAGS += -DKZA_THREADS_LOOP
-kza_threads_loop: kz_threads_loop
+prefix_sum-threads_client_server: CFLAGS += -DPREFIX_SUM
+prefix_sum-threads_client_server: threads_client_server
 
-kza_threads_loop_debug: CFLAGS += -DKZA_THREADS_LOOP -DTIMER -DDEBUG
-kza_threads_loop_debug: kz_threads_loop_debug
+prefix_sum-threads_client_server-debug: CFLAGS += -DPREFIX_SUM
+prefix_sum-threads_client_server-debug: threads_client_server-debug
+
+prefix_sum-threads_loop: CFLAGS += -DPREFIX_SUM
+prefix_sum-threads_loop: threads_loop
+
+prefix_sum-threads_loop-debug: CFLAGS += -DPREFIX_SUM
+prefix_sum-threads_loop-debug: threads_loop-debug
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
