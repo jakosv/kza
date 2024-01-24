@@ -4,19 +4,11 @@
 
 Makefile has multiple targets:
 - prefix_sum - prefix sum optimization;
-- threads_client_server - client-server multithreading implementation;
-- threads_loop - loop multithreading implementation;
-- prefix_sum-threads_client_server - client-server multithreading implementation with prefix sum optimization;
-- prefix_sum-threads_loop - loop multithreading implementation with prefix sum
-optimization;
-- kza_timer - default target without any optimizations with time
-measurement.
-
-Also each target has a prefix -timer, which enables time measurement of
-algorithms. 
+- kza_timer - time measurement;
+- prefix_sum-timer - prefix sum optimization with time measurement.
 
 ```console
-$ make prefix_sum-threads_client_server-debug
+$ make prefix_sum-timer
 ```
 
 ## Usage 
