@@ -6,9 +6,8 @@
 #include <math.h>
 
 #ifdef TIMER
-#include <sys/time.h>
+#include "timer.h"
 #endif
-
 
 #if defined(KZ_THREADS_CLIENT_SERVER) || defined(KZ_THREADS_LOOP)
 #include <pthread.h>
@@ -439,9 +438,7 @@ double *kz(const double *x, int dim, const int *size, const int *window,
     double *ans = NULL;
 
 #ifdef TIMER
-    enum { usecs_in_sec = 1000000, usecs_in_msec = 1000 };
-    struct timeval t_start, t_end;
-    long elapsed_time, secs, msecs;
+    struct timeval t_start;
 #endif
 
     if (!x || !size || !window) {
@@ -463,18 +460,11 @@ double *kz(const double *x, int dim, const int *size, const int *window,
             goto quit;
 
 #ifdef TIMER
-        gettimeofday(&t_start, NULL);
+        timestamp(&t_start);
 #endif
         ans = kz1d(x, size[0], win_size[0], iterations); 
 #ifdef TIMER
-        gettimeofday(&t_end, NULL);
-        elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1e6 + 
-            t_end.tv_usec - t_start.tv_usec;
-        secs = elapsed_time / usecs_in_sec;
-        msecs = elapsed_time % usecs_in_sec;
-        msecs /= usecs_in_msec;
-        printf("kz(): elapsed time %lds, %ldms (%ld usec)\n", 
-               secs, msecs, elapsed_time);
+        print_timer(&t_start, "kz():");
 #endif
         break;
     default:

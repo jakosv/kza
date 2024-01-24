@@ -8,7 +8,7 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 #ifdef TIMER
-#include <sys/time.h>
+#include "timer.h"
 #endif
 
 #if defined(KZA_THREADS_CLIENT_SERVER) || defined(KZA_THREADS_LOOP)
@@ -565,9 +565,7 @@ double *kza(const double *x, int dim, const int *size, const double *y,
     int mem_size;
 
 #ifdef TIMER
-    enum { usecs_in_sec = 1000000, usecs_in_msec = 1000 };
-    struct timeval t_start, t_end;
-    long elapsed_time, secs, msecs;
+    struct timeval t_start;
 #endif
 
     if (!x || !size || !window) {
@@ -593,19 +591,12 @@ double *kza(const double *x, int dim, const int *size, const double *y,
     }
 
 #ifdef TIMER
-    gettimeofday(&t_start, NULL);
+    timestamp(&t_start);
 #endif
     kza_ans = kza1d(x, size[0], kz_ans, window[0], iterations, min_window,
                     tolerance);
 #ifdef TIMER
-        gettimeofday(&t_end, NULL);
-        elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1e6 + 
-            t_end.tv_usec - t_start.tv_usec;
-        secs = elapsed_time / usecs_in_sec;
-        msecs = elapsed_time % usecs_in_sec;
-        msecs /= usecs_in_msec;
-        printf("kza(): elapsed time %lds, %ldms (%ld usec)\n", 
-               secs, msecs, elapsed_time);
+    print_timer(&t_start, "kza():");
 #endif
 
     free(kz_ans);
