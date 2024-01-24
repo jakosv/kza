@@ -1,4 +1,4 @@
-#ifdef TIMER_H_SENTRY
+#ifndef TIMER_H_SENTRY
 #define TIMER_H_SENTRY
 
 #include <sys/time.h>
