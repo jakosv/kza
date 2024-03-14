@@ -7,6 +7,7 @@ extern "C" {
 
 double *kz(const double *data, int dimention, const int *data_size,
            const int *window, int iterations);
+void kz_free(double *data);
 
 #ifdef __cplusplus
 }

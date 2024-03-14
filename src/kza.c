@@ -428,7 +428,7 @@ double *kza(const double *x, int dim, const int *size, const double *y,
     print_timer(&t_start, "kza():");
 #endif
 
-    free(kz_ans);
+    kz_free(kz_ans);
 
     return kza_ans;
 }
