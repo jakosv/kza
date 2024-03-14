@@ -1,10 +1,10 @@
-from os import listdir, getcwd
+from os import listdir, path 
 from os.path import isfile, join
 import ctypes as ct
 import numpy as np
 
 def get_dynamic_lib(path):
-    libkza_path = path + "/libkza.so"
+    libkza_path = path + "/../src/libkza.so"
     libkza = ct.CDLL(libkza_path)
     return libkza
 
@@ -107,7 +107,7 @@ def run_func_tests(func_name, path, funcs):
             
 
 def main():
-    script_path = getcwd()
+    script_path = path.dirname(path.realpath(__file__))
 
     funcs = {
         "kz": None,
@@ -120,7 +120,7 @@ def main():
     funcs["kza"] = get_kza_func(libkza)
     funcs["kza_free"] = get_kza_free_func(libkza)
 
-    tests_path = join(script_path, 'tests/')
+    tests_path = script_path
     run_func_tests("kz1d", tests_path, funcs)
     run_func_tests("kza1d", tests_path, funcs)
 

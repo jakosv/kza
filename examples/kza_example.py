@@ -3,7 +3,8 @@ import ctypes as ct
 import numpy as np
 import matplotlib.pyplot as plt
 
-libkza_path = os.getcwd() + "/libkza.so"
+script_path = os.path.realpath(__file__)
+libkza_path = os.path.dirname(script_path) + "/../src/libkza.so"
 
 libkza = ct.CDLL(libkza_path)
 
