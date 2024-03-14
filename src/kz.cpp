@@ -166,7 +166,7 @@ static void start_threads(std::vector<ThreadData> &th, TaskData &task,
     for (int i = 0; i < th.size(); i++) {
         th[i].id = i;
         th[i].start_idx = start_idx;
-        th[i].end_idx = start_idx + task.data.size();
+        th[i].end_idx = start_idx + task.task_size;
 
         if (th[i].end_idx > task.data.size())
             th[i].end_idx = task.data.size();
