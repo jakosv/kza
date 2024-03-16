@@ -4,6 +4,7 @@
 #include <vector>
 #include <cmath>
 #include <limits>
+#include <functional>
 
 #ifdef TIMER
 #include <chrono>
@@ -12,7 +13,7 @@
 #include <thread>
 #include <barrier>
 
-typedef std::barrier<std::__empty_completion> barrier_t;
+typedef std::barrier<std::function<void()>> barrier_t;
 
 struct KzData {
     int window;
@@ -47,16 +48,24 @@ struct ThreadData {
     long start_idx, end_idx;
 };
 
-#ifdef PREFIX_SUM
-static double mavg1d(const KzData &task, int window_center, int w)
+static inline void calc_window_bounds(long *start_idx, long *end_idx, 
+                                      const std::vector<double> &data, 
+                                      int win_center, int win_size)
 {
-    // window length is 2*w+1
-    long start_idx = (window_center+1) - w - 1; // index of value before window
-    start_idx *= (start_idx > 0);
+    // window length is 2*win_size+1
+    *start_idx = win_center - win_size;
+    *start_idx *= (*start_idx > 0);
 
-    long end_idx = (window_center+1) + w; // the last window value index
-    if (end_idx > task.data.size())
-        end_idx = task.data.size();
+    *end_idx = win_center + win_size + 1;
+    if (*end_idx > data.size())
+        *end_idx = data.size();
+}
+
+#ifdef PREFIX_SUM
+static double mavg1d(const KzData &kz_data, int win_center, int win_size)
+{
+    long start_idx, end_idx;
+    calc_window_bounds(&start_idx, &end_idx, data, win_center, win_size);
 
     /* (window sum) = (sum containig window) - (sum before window) */
     int s = (task.pref_sum[end_idx] - task.pref_sum[start_idx]);
@@ -83,22 +92,18 @@ static void calc_prefix_sum(const std::vector<double> &data,
 }
 
 #else
-static double mavg1d(const std::vector<double> &x, int window_center, int w)
+static double mavg1d(const std::vector<double> &data, int win_center, 
+                     int win_size)
 {
-    // window length is 2*w+1
-    long start_idx = window_center - w;
-    start_idx *= (start_idx > 0);
-
-    long end_idx = window_center + w + 1;
-    if (end_idx > x.size())
-        end_idx = x.size();
+    long start_idx, end_idx;
+    calc_window_bounds(&start_idx, &end_idx, data, win_center, win_size);
 
     long z = 0;
     double s = 0;
     for (int i = start_idx; i < end_idx; ++i) {
-        int is_finite_flag = std::isfinite(x[i]);
+        int is_finite_flag = std::isfinite(data[i]);
         z += is_finite_flag;
-        s += is_finite_flag * x[i];
+        s += is_finite_flag * data[i];
     }
 
     if (z == 0)
@@ -127,9 +132,6 @@ static void worker(ThreadData &thread, KzData &kz_data,
 
         // waiting for other threads to complete iteration
         sync_iteration.arrive_and_wait();
-
-        // waiting for data update on server
-        sync_iteration.arrive_and_wait();
     }
     // perform last iteration and finish
     perform_task_iteration(kz_data, thread.start_idx, thread.end_idx);
@@ -154,38 +156,23 @@ static void start_threads(std::vector<ThreadData> &th, KzData &kz_data,
     }
 }
 
-static void wait_threads(std::vector<ThreadData> &th)
+static void perform_iterations(int threads_cnt, KzData &kz_data)
 {
-    for (auto &thread : th)
-        thread.t.join();
-}
-
-static void threads_server_loop(int threads_cnt, KzData &kz_data)
-{
-    std::vector<ThreadData> th(threads_cnt);
-    barrier_t sync_iteration(threads_cnt + 1);
-
-    start_threads(th, kz_data, sync_iteration);
-
-    for (int iter = 0; iter < kz_data.iterations-1; ++iter) {
-        // waiting for workers to complete iteration
-        sync_iteration.arrive_and_wait();
-#ifdef DEBUG
-        std::cout << "Server updates data" << std::endl;
-#endif
-
+    auto on_iteration_complete = [&kz_data]() {
 #ifdef PREFIX_SUM
         calc_prefix_sum(kz_data.ans, kz_data.pref_sum, 
                         kz_data.pref_finite_cnt);
 #else
         std::swap(kz_data.data, kz_data.ans);
 #endif
-        // allow workers to perfrom next iteration 
-        sync_iteration.arrive_and_wait();
-    } 
+    };
 
-    // waiting for the workers to complete the last iteration
-    wait_threads(th);
+    barrier_t sync_iteration(threads_cnt, on_iteration_complete);
+    std::vector<ThreadData> th(threads_cnt);
+    start_threads(th, kz_data, sync_iteration);
+
+    for (auto &thread : th)
+        thread.t.join();
 }
 
 double *kz1d(const double *data, int data_size, int window, int iterations)
@@ -201,7 +188,7 @@ double *kz1d(const double *data, int data_size, int window, int iterations)
     calc_prefix_sum(kz_data.data, kz_data.pref_sum, kz_data.pref_finite_cnt);
 #endif
 
-    threads_server_loop(threads_cnt, kz_data);
+    perform_iterations(threads_cnt, kz_data);
 
     double *ans = new double[data_size];
     std::copy(kz_data.ans.begin(), kz_data.ans.end(), ans);
