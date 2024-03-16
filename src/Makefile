@@ -1,6 +1,6 @@
 LIBNAME = libkza.so
 CFLAGS = -Wall -fPIC
-CXXFLAGS = -std=c++20 -fPIC -shared 
+CXXFLAGS = -std=c++20 -Wall -fPIC
 LDFLAGS = -lm -lstdc++
 OBJMODULES = kz.o kza.o timer.o
 

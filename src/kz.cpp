@@ -11,7 +11,9 @@
 #include <thread>
 #include <barrier>
 
-struct TaskData {
+typedef std::barrier<std::__empty_completion> barrier_t;
+
+struct KzData {
     int window;
     int task_size;
     int iterations;
@@ -24,8 +26,8 @@ struct TaskData {
     int *pref_finite_cnt;
 #endif
 
-    TaskData(int window, int task_size, int iterations,
-             const double *data, int data_size) : 
+    KzData(int window, int task_size, int iterations,
+           const double *data, int data_size) : 
                 window(window), task_size(task_size), iterations(iterations),
                 data_size(data_size)
     {
@@ -37,23 +39,32 @@ struct TaskData {
         this->pref_finite_cnt = new double[data_size+1];
 #endif
     }
+
+    ~KzData()
+    {
+        delete[] data;
+        delete[] ans;
+#ifdef PREFIX_SUM
+        delete[] pref_sum;
+        delete[] pref_finite_cnt;
+#endif
+    }
+    
+    double *extract_answer()
+    {
+        double *ans = this->ans;
+        this->ans = nullptr;
+        return ans;
+    }
 };
 
 struct ThreadData {
     std::thread t;
-    /*
-    TaskData &task;
-    */
     int start_idx, end_idx;
-
-    /*
-    ThreadData(TaskData &task) : task(task)
-    {}
-    */
 };
 
 #ifdef PREFIX_SUM
-static double mavg1d(const TaskData &task, int window_center, int w)
+static double mavg1d(const KzData &task, int window_center, int w)
 {
     // window length is 2*w+1
     int start_idx = (window_center+1) - w - 1; // index of value before window
@@ -111,7 +122,7 @@ static double mavg1d(const double *x, int data_size, int window_center, int w)
 }
 #endif
 
-static void perform_task_iteration(TaskData &task, int start_idx, int end_idx)
+static void perform_task_iteration(KzData &task, int start_idx, int end_idx)
 {
     for (int i = start_idx; i < end_idx; ++i) {
 #ifdef PREFIX_SUM
@@ -122,44 +133,38 @@ static void perform_task_iteration(TaskData &task, int start_idx, int end_idx)
     }
 }
 
-static void worker(std::barrier<std::__empty_completion> &sync_iteration,
-                   ThreadData &thread, TaskData &task)
+static void worker(ThreadData &thread, KzData &kz_data, 
+                   barrier_t &sync_iteration)
 {
-    for (int k = 0; k < task.iterations-1; ++k) {
-        perform_task_iteration(task, thread.start_idx, thread.end_idx);
+    for (int k = 0; k < kz_data.iterations-1; ++k) {
+        perform_task_iteration(kz_data, thread.start_idx, thread.end_idx);
 
         // waiting for other threads to complete iteration
-#ifdef DEBUG
-        std::cout << "Worker " << thread.id << " iter " << k << std::endl;
-#endif
         sync_iteration.arrive_and_wait();
 
         // waiting for data update on server
         sync_iteration.arrive_and_wait();
     }
     // perform last iteration and finish
-    perform_task_iteration(task, thread.start_idx, thread.end_idx);
-#ifdef DEBUG
-    std::cout << "Worker " << thread.id << " last iter "<< std::endl;
-#endif
+    perform_task_iteration(kz_data, thread.start_idx, thread.end_idx);
 } 
 
-static void start_threads(ThreadData *th, int threads_cnt, TaskData &task,
-                          std::barrier<std::__empty_completion> &sync_iteration)
+static void start_threads(ThreadData *th, int threads_cnt, KzData &kz_data,
+                          barrier_t &sync_iteration)
 {
     int start_idx = 0;
 
     for (int i = 0; i < threads_cnt; ++i) {
         th[i].start_idx = start_idx;
-        th[i].end_idx = start_idx + task.task_size;
+        th[i].end_idx = start_idx + kz_data.task_size;
 
-        if (th[i].end_idx > task.data_size)
-            th[i].end_idx = task.data_size;
+        if (th[i].end_idx > kz_data.data_size)
+            th[i].end_idx = kz_data.data_size;
         else
             start_idx = th[i].end_idx;
 
-        th[i].t = std::thread(worker, std::ref(sync_iteration), 
-                              std::ref(th[i]), std::ref(task));
+        th[i].t = std::thread(worker, std::ref(th[i]), std::ref(kz_data),
+                              std::ref(sync_iteration));
     }
 }
 
@@ -169,14 +174,14 @@ static void wait_threads(ThreadData *th, int threads_cnt)
         th[i].t.join();
 }
 
-static void threads_server_loop(int threads_cnt, TaskData &task)
+static void threads_server_loop(int threads_cnt, KzData &kz_data)
 {
     ThreadData *th = new ThreadData[threads_cnt];
     std::barrier sync_iteration(threads_cnt + 1);
 
-    start_threads(th, threads_cnt, task, sync_iteration);
+    start_threads(th, threads_cnt, kz_data, sync_iteration);
 
-    for (int iter = 0; iter < task.iterations-1; ++iter) {
+    for (int iter = 0; iter < kz_data.iterations-1; ++iter) {
         // waiting for workers to complete iteration
         sync_iteration.arrive_and_wait();
 #ifdef DEBUG
@@ -184,10 +189,10 @@ static void threads_server_loop(int threads_cnt, TaskData &task)
 #endif
 
 #ifdef PREFIX_SUM
-        calc_prefix_sum(task.ans, task.data_size, 
-                        task.pref_sum, task.pref_finite_cnt);
+        calc_prefix_sum(kz_data.ans, kz_data.data_size, 
+                        kz_data.pref_sum, kz_data.pref_finite_cnt);
 #else
-        std::swap(task.data, task.ans);
+        std::swap(kz_data.data, kz_data.ans);
 #endif
         // allow workers to perfrom next iteration 
         sync_iteration.arrive_and_wait();
@@ -206,20 +211,14 @@ double *kz1d(const double *data, int data_size, int window, int iterations)
 #endif
 
     int task_size = (data_size + threads_cnt-1) / threads_cnt;
-    TaskData task(window, task_size, iterations, data, data_size);
+    KzData kz_data(window, task_size, iterations, data, data_size);
 #ifdef PREFIX_SUM
-    calc_prefix_sum(task.data, task.pref_sum, task.pref_finite_cnt);
+    calc_prefix_sum(kz_data.data, kz_data.pref_sum, kz_data.pref_finite_cnt);
 #endif
 
-    threads_server_loop(threads_cnt, task);
+    threads_server_loop(threads_cnt, kz_data);
 
-    delete[] task.data;
-#ifdef PREFIX_SUM
-    delete[] task.pref_sum;
-    delete[] task.pref_finite_cnt;
-#endif
-
-    return task.ans;
+    return kz_data.extract_answer();
 }
 
 double *kz(const double *data, int dimention, const int *data_size,
