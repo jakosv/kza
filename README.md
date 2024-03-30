@@ -26,8 +26,6 @@ $ sudo apt install python[version]-dev
 ```
 minimum version 3.6 ( recommended 3.11 ) 
 
-Current target directory for the shared library is set to _kza/tests_
-
 ## Usage 
 Makefile builds shared library. For example, we can use it in python.
 

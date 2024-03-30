@@ -19,9 +19,9 @@ pybind11_add_module(${PROJECT_NAME} pywrap.cpp kz.cpp kza.c timer.c)
 target_compile_definitions(${PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO})
 target_include_directories(${PROJECT_NAME} PRIVATE ${PYBIND11_INCLUDE_DIRS})
 
-set_target_properties( KZ_Lib
+set_target_properties(KZ_Lib
     PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "../tests"
-    LIBRARY_OUTPUT_DIRECTORY "../tests"
-    RUNTIME_OUTPUT_DIRECTORY "../tests"
+    ARCHIVE_OUTPUT_DIRECTORY "../build"
+    LIBRARY_OUTPUT_DIRECTORY "../build"
+    RUNTIME_OUTPUT_DIRECTORY "../build"
 )

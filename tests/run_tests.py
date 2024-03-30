@@ -2,6 +2,9 @@ from os import listdir, path
 from os.path import isfile, join
 import numpy as np
 
+import sys
+sys.path.append(path.dirname(path.dirname(__file__))+"/build")
+
 import KZ_Lib
 
 def get_input_files(path):
@@ -15,28 +18,32 @@ def get_input_files(path):
                     input_files.append(f)
     return input_files
 
-def kz1d(x, m, k):
+def kz1d(x, m, k = 3):
     xp = x
     dim = 1
     size = len(x)
     window = m
     res = KZ_Lib.kz(xp, dim, size, window, k)
     ans = res[:len(x)]
-    #MyLib.kza_free(res) res is copy
+    #KZ_Lib.kza_free(res) res is copy
     return ans
 
-def kza1d(x, m, k):
-    min_size = 10
-    tol = 1.0e-5
-    y = kz1d(x, m, k) 
+def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
+        impute_tails = False):
     xp = x
-    yp = y
+    if y != None:
+        yp = y
+    else:
+        yp = kz1d(x,m)
+    if min_size == None:
+        min_size = round(0.05*m)
     dim = 1
     size = len(x)
     window = m
-    res = KZ_Lib.kza(xp, dim, size, yp, window, k, min_size, tol)
+    res = KZ_Lib.kza(xp, dim, size, yp, window, k,
+                     min_size, tol)
     ans = res[:len(x)]
-    #MyLib.kza_free(res)
+    #KZ_Lib.kza_free(res) res is copy
     return ans
 
 def run_func_tests(func_name, path):
@@ -53,16 +60,16 @@ def run_func_tests(func_name, path):
         if func_name == "kz1d":
             win_size = 30
             iterations = 3
-            res = kz1d(x, win_size, iterations)
+            res = kz1d(x, win_size, k=iterations)
         elif func_name == "kza1d":
             win_size = 365
             iterations = 3
-            res = kza1d(x, win_size, iterations)
+            res = kza1d(x, win_size, k=iterations, min_size=10)
 
         if not np.allclose(res, ans):
             diff = res - ans
             print(diff)
-            print("test [{func_name}/{file_name}] failed")
+            print("test "+str(func_name)+"/"+str(file_name)+" failed")
             
 
 def main():
