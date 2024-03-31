@@ -1,5 +1,5 @@
-#ifndef KZ_H_SENTRY
-#define KZ_H_SENTRY
+#ifndef KZ_GENERIC_H_SENTRY
+#define KZ_GENERIC_H_SENTRY
 
 #include <iostream>
 #include <vector>
@@ -42,12 +42,12 @@ protected:
 
     void worker(ThreadData &t_data, barrier_t &sync_iteration);
     void start_threads(std::vector<ThreadData> &th,
-                       barrier_t &sync_iteration, SizeType iterations);
+                       barrier_t &sync_iteration, 
+                       SizeType iterations);
     ValueType average(SizeType start_idx, SizeType end_idx);
     void update_prefix_sum(const std::vector<ValueType> &data);
     virtual void perform_single_iteration(SizeType start_idx,
-                                          SizeType end_idx) 
-        {}
+                                          SizeType end_idx) {}
 
 };
 
@@ -78,10 +78,11 @@ KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size,
 
 template<class ValueType, class SizeType>
 KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size, 
-                                const ValueType *data, SizeType data_size) : 
-                                        window_size(window_size),
-                                        ans(data_size), 
-                                        data(data, data+data_size)
+                                          const ValueType *data, 
+                                          SizeType data_size) : 
+                                                window_size(window_size),
+                                                ans(data_size), 
+                                                data(data, data+data_size)
 {
     threads_cnt = std::thread::hardware_concurrency();
     #ifdef DEBUG

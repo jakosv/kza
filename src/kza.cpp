@@ -146,26 +146,25 @@ double *kza(const double *x, int dim, const int *size, const double *y,
         return NULL;
     }
 
-    int mem_size = size[0] * sizeof(double);
-    try {
-        kz_ans = new double[mem_size];
-    } 
-    catch (const std::bad_alloc&) {
-        return nullptr; 
-    }
+    int data_size = size[0];
 
     if (!y) {
-        memcpy(kz_ans, x, mem_size);
-        kz(kz_ans, dim, size, window, iterations);
+        kz_ans = kz(x, dim, size, window, iterations);
     } else {
-        memcpy(kz_ans, y, mem_size);
+        try {
+            kz_ans = new double[data_size];
+        } 
+        catch (const std::bad_alloc&) {
+            return nullptr; 
+        }
+        std::copy(y, y + data_size, kz_ans);
     }
 
 #ifdef TIMER
     Timer timer;
     timer.start();
 #endif
-    kza_ans = kza1d(x, size[0], kz_ans, window[0], iterations, min_window,
+    kza_ans = kza1d(x, data_size, kz_ans, window[0], iterations, min_window,
                     tolerance);
 #ifdef TIMER
     timer.stop();
