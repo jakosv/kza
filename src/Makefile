@@ -1,7 +1,7 @@
 LIBNAME = libkza.so
 CXXFLAGS = -std=c++20 -Wall -fPIC -O2
 LDFLAGS = -lstdc++
-OBJMODULES = kz.o kza.o timer.o
+OBJMODULES = kz.o kza.o
 
 .PHONY: clean
 
