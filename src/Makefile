@@ -1,7 +1,6 @@
 LIBNAME = libkza.so
-CFLAGS = -Wall -fPIC
-CXXFLAGS = -std=c++20 -Wall -fPIC
-LDFLAGS = -lm -lstdc++
+CXXFLAGS = -std=c++20 -Wall -fPIC -O2
+LDFLAGS = -lstdc++
 OBJMODULES = kz.o kza.o timer.o
 
 .PHONY: clean
@@ -24,10 +23,7 @@ prefix_sum-timer: CFLAGS += -DTIMER
 prefix_sum-timer: CXXFLAGS += -DTIMER 
 prefix_sum-timer: prefix_sum 
 
-%.o: %.c %.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-%.o: %.cpp %.h
+%.o: %.cpp %.h %.hpp
 	$(CC) $(CXXFLAGS) -c $< -o $@
 
 library: $(OBJMODULES) 
