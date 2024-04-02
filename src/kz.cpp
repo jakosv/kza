@@ -18,13 +18,11 @@
 template<class ValueType, class SizeType>
 class KZ: public KZGeneric<ValueType, SizeType> {
 public:
-
     KZ(SizeType window_size, const ValueType *data, SizeType data_size) : 
             KZGeneric<ValueType, SizeType>(window_size, data, data_size)
     {}
 
 private:
-
     // window length is 2*window_size+1
     inline SizeType window_left_bound(SizeType win_center)
     {

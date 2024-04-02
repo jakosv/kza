@@ -35,20 +35,20 @@ protected:
     std::vector<ValueType> ans;
     std::vector<ValueType> data;
 
-#ifdef PREFIX_SUM
+  #ifdef PREFIX_SUM
     std::vector<ValueType> pref_sum;
     std::vector<SizeType> pref_finite_cnt;
-#endif
+
+    void update_prefix_sum(const std::vector<ValueType> &data);
+  #endif
 
     void worker(ThreadData &t_data, barrier_t &sync_iteration);
     void start_threads(std::vector<ThreadData> &th,
                        barrier_t &sync_iteration, 
                        SizeType iterations);
     ValueType average(SizeType start_idx, SizeType end_idx);
-    void update_prefix_sum(const std::vector<ValueType> &data);
     virtual void perform_single_iteration(SizeType start_idx,
                                           SizeType end_idx) {}
-
 };
 
 
@@ -58,11 +58,11 @@ template<class ValueType, class SizeType>
 KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size, 
                                           const ValueType *data, 
                                           SizeType data_size) : 
-                                                window_size(window_size), 
-                                                ans(data_size), 
-                                                data(data, data+data_size), 
-                                                pref_sum(data_size+1), 
-                                                pref_finite_cnt(data_size+1)
+                                            window_size(window_size), 
+                                            ans(data_size), 
+                                            data(data, data + data_size), 
+                                            pref_sum(data_size + 1), 
+                                            pref_finite_cnt(data_size + 1)
 {
     threads_cnt = std::thread::hardware_concurrency();
     #ifdef DEBUG
@@ -80,9 +80,9 @@ template<class ValueType, class SizeType>
 KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size, 
                                           const ValueType *data, 
                                           SizeType data_size) : 
-                                                window_size(window_size),
-                                                ans(data_size), 
-                                                data(data, data+data_size)
+                                            window_size(window_size),
+                                            ans(data_size), 
+                                            data(data, data + data_size)
 {
     threads_cnt = std::thread::hardware_concurrency();
     #ifdef DEBUG
@@ -91,6 +91,7 @@ KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size,
 
     task_size = (data_size + threads_cnt-1) / threads_cnt;
 }
+
   #endif
 
 template<class ValueType, class SizeType>
@@ -155,12 +156,12 @@ void KZGeneric<ValueType, SizeType>::start_threads(
         t_data.iterations = iterations;
         t_data.start_idx = start_idx;
         t_data.end_idx = (start_idx + task_size >= data.size()) ? 
-                                                    data.size() - 1 : 
-                                                    start_idx + task_size;
+                                                data.size() - 1 : 
+                                                start_idx + task_size;
         start_idx = t_data.end_idx;
 
         t_data.thread = std::thread(&KZGeneric::worker, this, 
-                                    std::ref(t_data),
+                                    std::ref(t_data), 
                                     std::ref(sync_iteration));
     }
 }
@@ -173,7 +174,7 @@ ValueType KZGeneric<ValueType, SizeType>::average(SizeType start_idx,
                                                   SizeType end_idx)
 {
     /* (window sum) = (sum containig window) - (sum before window) */
-    SizeType z = (pref_finite_cnt[end_idx+1] - pref_finite_cnt[start_idx]);
+    SizeType z = (pref_finite_cnt[end_idx + 1] - pref_finite_cnt[start_idx]);
 
     if (z == 0)
         return std::numeric_limits<ValueType>::quiet_NaN();
@@ -189,7 +190,7 @@ void KZGeneric<ValueType, SizeType>::update_prefix_sum(
     pref_finite_cnt[0] = 0;
 
     for (SizeType i = 1; i <= data.size(); ++i) {
-        SizeType is_finite_flag = std::isfinite(data[i-1]);
+        bool is_finite_flag = std::isfinite(data[i-1]);
         pref_sum[i] = pref_sum[i-1] + is_finite_flag * data[i-1];
         pref_finite_cnt[i] = pref_finite_cnt[i-1] + is_finite_flag;
     }
@@ -205,7 +206,7 @@ ValueType KZGeneric<ValueType, SizeType>::average(SizeType start_idx,
     ValueType s = 0;
 
     for (SizeType i = start_idx; i <= end_idx; ++i) {
-        SizeType is_finite_flag = std::isfinite(data[i]);
+        bool is_finite_flag = std::isfinite(data[i]);
         z += is_finite_flag;
         s += is_finite_flag * data[i];
     }
