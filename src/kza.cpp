@@ -36,25 +36,27 @@ private:
     ValueType max_diff;
     std::vector<ValueType> kz_derivative;
 
+    using KZGeneric<ValueType, SizeType>::window_size;
+    using KZGeneric<ValueType, SizeType>::data;
+    using KZGeneric<ValueType, SizeType>::ans;
+
 
     inline void normalize_left_window_size(SizeType &left_win, 
                                            SizeType window_center)
     {
-        left_win = 
-            (left_win < min_window_size) ? this->min_window_size : left_win;
-
+        left_win = (left_win < min_window_size) ? min_window_size : left_win;
         left_win = (left_win > window_center) ? window_center : left_win;
     }
 
     inline void normalize_right_window_size(SizeType &right_win,
                                             SizeType window_center)
     {
-        right_win = (right_win < this->min_window_size) ?
-                                    this->min_window_size :
+        right_win = (right_win < min_window_size) ? 
+                                    min_window_size : 
                                     right_win;
 
         /* check bounds */
-        SizeType max_right_bound = this->data.size() - window_center - 1;
+        SizeType max_right_bound = data.size() - window_center - 1;
         right_win = 
             (right_win > max_right_bound) ? max_right_bound : right_win;
 
@@ -64,18 +66,18 @@ private:
                                            SizeType &right_win_size, 
                                            SizeType t)  
     {
-        SizeType adaptive_win_size = std::floor(this->window_size * 
-                                     (1 - this->kz_diff[t]/this->max_diff));
+        SizeType adaptive_win_size = std::floor(window_size * 
+                                     (1 - kz_diff[t]/max_diff));
         // derivative[t] = 0
-        if (fabs(this->kz_derivative[t]) < this->tolerance) {
+        if (fabs(kz_derivative[t]) < tolerance) {
             left_win_size = adaptive_win_size;
             right_win_size = adaptive_win_size;
-        } else if (this->kz_derivative[t] < 0) {
-            right_win_size = this->window_size;
+        } else if (kz_derivative[t] < 0) {
+            right_win_size = window_size;
             left_win_size = adaptive_win_size;
         } else {
             right_win_size = adaptive_win_size;
-            left_win_size = this->window_size;
+            left_win_size = window_size;
         }
     }
 
@@ -83,22 +85,22 @@ private:
     {
         /* calculate d = |Z(i+q) - Z(i-q)| */
         for (SizeType i = 0; i < q; ++i) {
-            this->kz_diff[i] = std::fabs(y[i+q] - y[0]);
-            this->max_diff = std::max(this->max_diff, this->kz_diff[i]);
+            kz_diff[i] = std::fabs(y[i+q] - y[0]);
+            max_diff = std::max(max_diff, kz_diff[i]);
         }
         for (SizeType i = q; i < n-q; ++i) {
-            this->kz_diff[i] = std::fabs(y[i+q] - y[i-q]);
-            this->max_diff = std::max(this->max_diff, this->kz_diff[i]);
+            kz_diff[i] = std::fabs(y[i+q] - y[i-q]);
+            max_diff = std::max(max_diff, kz_diff[i]);
         }
         for (SizeType i = n-q; i < n; ++i) {
-            this->kz_diff[i] = std::fabs(y[n-1] - y[i-q]);
-            this->max_diff = std::max(this->max_diff, this->kz_diff[i]);
+            kz_diff[i] = std::fabs(y[n-1] - y[i-q]);
+            max_diff = std::max(max_diff, kz_diff[i]);
         }
 
         /* d'(t) = d(i+1)-d(i) */
         for (SizeType i = 0; i < n-1; i++)
-            this->kz_derivative[i] = this->kz_diff[i+1] - this->kz_diff[i];
-        this->kz_derivative[n-1] = this->kz_derivative[n-2];
+            kz_derivative[i] = kz_diff[i+1] - kz_diff[i];
+        kz_derivative[n-1] = kz_derivative[n-2];
     }
 
     void perform_single_iteration(SizeType start_idx, SizeType end_idx)
@@ -110,8 +112,7 @@ private:
             this->normalize_left_window_size(left_win_size, t);
             this->normalize_right_window_size(right_win_size, t);
 
-            this->ans[t] = this->average(t - left_win_size, 
-                                         t + right_win_size);
+            ans[t] = this->average(t - left_win_size, t + right_win_size);
         }
     }
 

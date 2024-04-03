@@ -25,6 +25,7 @@ public:
 private:
     using KZGeneric<ValueType, SizeType>::window_size;
     using KZGeneric<ValueType, SizeType>::data;
+    using KZGeneric<ValueType, SizeType>::ans;
 
     // window length is 2*window_size+1
     inline SizeType window_left_bound(SizeType win_center)
@@ -42,7 +43,7 @@ private:
     inline void perform_single_iteration(SizeType start_idx, SizeType end_idx)
     {
         for (SizeType time = start_idx; time <= end_idx; ++time)
-            this->ans[time] = this->average(this->window_left_bound(time),
+            ans[time] = this->average(this->window_left_bound(time),
                                             this->window_right_bound(time));
     }
 };
