@@ -42,15 +42,15 @@ protected:
     void update_prefix_sum(const std::vector<ValueType> &data);
   #endif
 
-    void worker(ThreadData &t_data, barrier_t &sync_iteration);
+    void worker(ThreadData &t_data, SizeType iterations,
+                barrier_t &sync_iteration);
     void start_threads(std::vector<ThreadData> &th,
-                       barrier_t &sync_iteration, 
-                       SizeType iterations);
+                       SizeType iterations,
+                       barrier_t &sync_iteration);
     ValueType average(SizeType start_idx, SizeType end_idx);
     virtual void perform_single_iteration(SizeType start_idx,
                                           SizeType end_idx) {}
 };
-
 
   #ifdef PREFIX_SUM
 
@@ -58,9 +58,9 @@ template<class ValueType, class SizeType>
 KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size, 
                                           const ValueType *data, 
                                           SizeType data_size) : 
-                                            window_size(window_size), 
+                                            window_size(window_size),
                                             ans(data_size), 
-                                            data(data, data + data_size), 
+                                            data(data, data + data_size),
                                             pref_sum(data_size + 1), 
                                             pref_finite_cnt(data_size + 1)
 {
@@ -94,9 +94,13 @@ KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size,
 
   #endif
 
+
 template<class ValueType, class SizeType>
 void KZGeneric<ValueType, SizeType>::perform_iterations(SizeType iterations)
 {
+    if (iterations <= 0)
+        return;
+
     auto on_iteration_complete = [this]() {
   #ifdef PREFIX_SUM
         this->update_prefix_sum(ans);
@@ -108,7 +112,7 @@ void KZGeneric<ValueType, SizeType>::perform_iterations(SizeType iterations)
     barrier_t sync_iteration(threads_cnt, on_iteration_complete);
     std::vector<ThreadData> th(threads_cnt);
 
-    this->start_threads(th, sync_iteration, iterations);
+    this->start_threads(th, iterations, sync_iteration);
 
     for (auto &thread_data : th)
         thread_data.thread.join();
@@ -132,9 +136,10 @@ ValueType *KZGeneric<ValueType, SizeType>::get_ans()
 
 template<class ValueType, class SizeType>
 void KZGeneric<ValueType, SizeType>::worker(KZGeneric::ThreadData &t_data, 
+                                            SizeType iterations,
                                             barrier_t &sync_iteration)
 {
-    for (SizeType i = 0; i < t_data.iterations-1; ++i) {
+    for (SizeType i = 0; i < iterations - 1; ++i) {
         this->perform_single_iteration(t_data.start_idx, t_data.end_idx);
 
         // waiting for other threads to complete iteration
@@ -146,14 +151,13 @@ void KZGeneric<ValueType, SizeType>::worker(KZGeneric::ThreadData &t_data,
 
 template<class ValueType, class SizeType>
 void KZGeneric<ValueType, SizeType>::start_threads(
-                              std::vector<KZGeneric::ThreadData> &th, 
-                              barrier_t &sync_iteration, 
-                              SizeType iterations)
+                              std::vector<KZGeneric::ThreadData> &th,
+                              SizeType iterations,
+                              barrier_t &sync_iteration)
 {
     SizeType start_idx = 0;
 
     for (auto &t_data : th) {
-        t_data.iterations = iterations;
         t_data.start_idx = start_idx;
         t_data.end_idx = (start_idx + task_size >= data.size()) ? 
                                                 data.size() - 1 : 
@@ -161,7 +165,7 @@ void KZGeneric<ValueType, SizeType>::start_threads(
         start_idx = t_data.end_idx;
 
         t_data.thread = std::thread(&KZGeneric::worker, this, 
-                                    std::ref(t_data), 
+                                    std::ref(t_data), iterations,
                                     std::ref(sync_iteration));
     }
 }

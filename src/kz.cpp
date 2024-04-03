@@ -23,30 +23,27 @@ public:
     {}
 
 private:
+    using KZGeneric<ValueType, SizeType>::window_size;
+    using KZGeneric<ValueType, SizeType>::data;
+
     // window length is 2*window_size+1
     inline SizeType window_left_bound(SizeType win_center)
     {
-        SizeType idx = win_center - this->window_size;
-        return (idx > 0) * idx;
+        return (win_center >= window_size) ? (win_center - window_size) : 0;
     }
 
     inline SizeType window_right_bound(SizeType win_center)
     {
-        return ((win_center + this->window_size) >= this->data.size()) ? 
-                                            this->data.size() - 1 : 
-                                            win_center + this->window_size;
+        return ((win_center + window_size) >= data.size()) ?
+                                            data.size() - 1 :
+                                            win_center + window_size;
     }
 
-    void perform_single_iteration(SizeType start_idx, SizeType end_idx)
+    inline void perform_single_iteration(SizeType start_idx, SizeType end_idx)
     {
-        SizeType win_left_bound, win_right_bound;
-
-        for (SizeType time = start_idx; time <= end_idx; ++time) {
-            win_left_bound = this->window_left_bound(time);
-            win_right_bound = this->window_right_bound(time);
-
-            this->ans[time] = this->average(win_left_bound, win_right_bound);
-        }
+        for (SizeType time = start_idx; time <= end_idx; ++time)
+            this->ans[time] = this->average(this->window_left_bound(time),
+                                            this->window_right_bound(time));
     }
 };
 
