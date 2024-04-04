@@ -5,16 +5,15 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append(path.dirname(path.dirname(__file__))+"/build")
 
-import KZ_Lib
+import libKZ_py
 
 def kz1d(x, m, k = 3):
     xp = x
     dim = 1
     size = len(x)
     window = m
-    res = KZ_Lib.kz(xp, dim, size, window, k)
+    res = libKZ_py.kz(xp, dim, size, window, k)
     ans = res[:len(x)]
-    #KZ_Lib.kza_free(res) res is copy
     return ans
 
 def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
@@ -29,10 +28,9 @@ def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
     dim = 1
     size = len(x)
     window = m
-    res = KZ_Lib.kza(xp, dim, size, yp, window, k,
+    res = libKZ_py.kza(xp, dim, size, yp, window, k,
                      min_size, tol)
     ans = res[:len(x)]
-    #KZ_Lib.kza_free(res) res is copy
     return ans
 
 # Example

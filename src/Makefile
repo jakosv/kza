@@ -117,24 +117,38 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named KZ_Lib
+# Target rules for targets named KZ
 
 # Build rule for target.
-KZ_Lib: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 KZ_Lib
-.PHONY : KZ_Lib
+KZ: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 KZ
+.PHONY : KZ
 
 # fast build rule for target.
-KZ_Lib/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/build
-.PHONY : KZ_Lib/fast
+KZ/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ.dir/build.make CMakeFiles/KZ.dir/build
+.PHONY : KZ/fast
+
+#=============================================================================
+# Target rules for targets named libKZ_py
+
+# Build rule for target.
+libKZ_py: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 libKZ_py
+.PHONY : libKZ_py
+
+# fast build rule for target.
+libKZ_py/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/build
+.PHONY : libKZ_py/fast
 
 kz.o: kz.cpp.o
 .PHONY : kz.o
 
 # target to build an object file
 kz.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/kz.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ.dir/build.make CMakeFiles/KZ.dir/kz.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/kz.cpp.o
 .PHONY : kz.cpp.o
 
 kz.i: kz.cpp.i
@@ -142,7 +156,8 @@ kz.i: kz.cpp.i
 
 # target to preprocess a source file
 kz.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/kz.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ.dir/build.make CMakeFiles/KZ.dir/kz.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/kz.cpp.i
 .PHONY : kz.cpp.i
 
 kz.s: kz.cpp.s
@@ -150,39 +165,43 @@ kz.s: kz.cpp.s
 
 # target to generate assembly for a file
 kz.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/kz.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ.dir/build.make CMakeFiles/KZ.dir/kz.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/kz.cpp.s
 .PHONY : kz.cpp.s
 
-kza.o: kza.c.o
+kza.o: kza.cpp.o
 .PHONY : kza.o
 
 # target to build an object file
-kza.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/kza.c.o
-.PHONY : kza.c.o
+kza.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ.dir/build.make CMakeFiles/KZ.dir/kza.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/kza.cpp.o
+.PHONY : kza.cpp.o
 
-kza.i: kza.c.i
+kza.i: kza.cpp.i
 .PHONY : kza.i
 
 # target to preprocess a source file
-kza.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/kza.c.i
-.PHONY : kza.c.i
+kza.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ.dir/build.make CMakeFiles/KZ.dir/kza.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/kza.cpp.i
+.PHONY : kza.cpp.i
 
-kza.s: kza.c.s
+kza.s: kza.cpp.s
 .PHONY : kza.s
 
 # target to generate assembly for a file
-kza.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/kza.c.s
-.PHONY : kza.c.s
+kza.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ.dir/build.make CMakeFiles/KZ.dir/kza.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/kza.cpp.s
+.PHONY : kza.cpp.s
 
 pywrap.o: pywrap.cpp.o
 .PHONY : pywrap.o
 
 # target to build an object file
 pywrap.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/pywrap.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/pywrap.cpp.o
 .PHONY : pywrap.cpp.o
 
 pywrap.i: pywrap.cpp.i
@@ -190,7 +209,7 @@ pywrap.i: pywrap.cpp.i
 
 # target to preprocess a source file
 pywrap.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/pywrap.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/pywrap.cpp.i
 .PHONY : pywrap.cpp.i
 
 pywrap.s: pywrap.cpp.s
@@ -198,32 +217,8 @@ pywrap.s: pywrap.cpp.s
 
 # target to generate assembly for a file
 pywrap.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/pywrap.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/libKZ_py.dir/build.make CMakeFiles/libKZ_py.dir/pywrap.cpp.s
 .PHONY : pywrap.cpp.s
-
-timer.o: timer.c.o
-.PHONY : timer.o
-
-# target to build an object file
-timer.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/timer.c.o
-.PHONY : timer.c.o
-
-timer.i: timer.c.i
-.PHONY : timer.i
-
-# target to preprocess a source file
-timer.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/timer.c.i
-.PHONY : timer.c.i
-
-timer.s: timer.c.s
-.PHONY : timer.s
-
-# target to generate assembly for a file
-timer.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/KZ_Lib.dir/build.make CMakeFiles/KZ_Lib.dir/timer.c.s
-.PHONY : timer.c.s
 
 # Help Target
 help:
@@ -233,7 +228,8 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... KZ_Lib"
+	@echo "... KZ"
+	@echo "... libKZ_py"
 	@echo "... kz.o"
 	@echo "... kz.i"
 	@echo "... kz.s"
@@ -243,9 +239,6 @@ help:
 	@echo "... pywrap.o"
 	@echo "... pywrap.i"
 	@echo "... pywrap.s"
-	@echo "... timer.o"
-	@echo "... timer.i"
-	@echo "... timer.s"
 .PHONY : help
 
 

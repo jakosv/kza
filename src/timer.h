@@ -1,17 +1,29 @@
-#ifndef TIMER_H_SENTRY
-#define TIMER_H_SENTRY
+#include <chrono>
 
-#include <sys/time.h>
+class Timer {
+public:
+    inline void start()
+    {
+        begin = std::chrono::steady_clock::now();
+    }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+    inline void stop()
+    {
+        end = std::chrono::steady_clock::now();
+    }
 
-void timestamp(struct timeval *time);
-void print_timer(struct timeval *t_start, const char *msg);
+    inline long elapsed_time()
+    {
+        auto diff = end - begin;
+        return std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+    }
 
-#ifdef __cplusplus
-}
-#endif
+    inline void print_elapsed(const char *msg)
+    {
+        long elapsed = this->elapsed_time();
+        std::cout << msg << elapsed << "ms" << std::endl;
+    }
 
-#endif
+private:
+    std::chrono::steady_clock::time_point begin, end;
+};

@@ -1,7 +1,7 @@
 # Kolmogorov-Zurbenko Adaptive Filter
 
 ## Pybind11 installation
-To build this project pybind11 is needed
+To build python module pybind11 is needed
 
 If you dont want to provide pybind11 path in CMakeLists.txt, you can install it globaly with:
 ```console
@@ -12,6 +12,7 @@ $ pip install "pybind11[global]"
 CMake has multiple options:
 - prefix_sum - prefix sum optimization;
 - kza_timer - time measurement;
+- no_python - build without pybind11 module
 
 From _kza/src_ directory:
 

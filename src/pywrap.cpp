@@ -4,7 +4,6 @@
 #include <vector>
 
 namespace py = pybind11;
-constexpr auto byref = py::return_value_policy::reference_internal;
 
 std::vector<double> kz_wrap(std::vector<double> x, int dim, const int *size, const int *window, int iterations) {
     auto res = kz(&x[0], dim, size, window, iterations);
@@ -17,16 +16,9 @@ std::vector<double> kza_wrap(std::vector<double> x, int dim, const int *size, st
     return std::vector<double>(res,res + *size);
 }
 
-PYBIND11_MODULE(KZ_Lib, m) {
+PYBIND11_MODULE(libKZ_py, m) {
     m.doc() = "optional module docstring";
 
-    /*py::class_<MyClass>(m, "MyClass")
-    .def(py::init<double, double, int>())  
-    .def("run", &MyClass::run, py::call_guard<py::gil_scoped_release>())
-    .def_readonly("v_data", &MyClass::v_data, byref)
-    .def_readonly("v_gamma", &MyClass::v_gamma, byref)
-    ;*/
-    m.def("kz", &kz_wrap, "A function ...");
-    m.def("kza", &kza_wrap, "A function ...");
-    //m.def("kza_free", &kza_free, "A function ...");
+    m.def("kz", &kz_wrap, "A kz wrapping function");
+    m.def("kza", &kza_wrap, "A kza wrapping function");
 }
