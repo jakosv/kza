@@ -13,6 +13,7 @@ if (prefix_sum)
     add_definitions(-DPREFIX_SUM)
 endif()
 if (NOT no_python)
+    set(PYBIND11_FINDPYTHON ON)
     set(PYBIND11_PYTHON_VERSION 3.6)
     find_package(pybind11 REQUIRED)
 
