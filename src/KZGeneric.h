@@ -9,60 +9,62 @@
 #include <barrier>
 #include <thread>
 #include <functional>
+#include <concepts>
 
 typedef std::barrier<std::function<void()>> barrier_t;
 
-template<class ValueType, class SizeType>
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
 class KZGeneric {
 public:
-    KZGeneric(SizeType window_size, const ValueType *data,
-              SizeType data_size);
+    KZGeneric(WinSizeT window_size, const ValueT *data, SizeT data_size);
     virtual ~KZGeneric() = default;
 
-    void perform_iterations(SizeType iterations);
-    ValueType *get_ans();
+    void perform_iterations(SizeT iterations);
+    ValueT *get_ans();
 
 protected:
     struct ThreadData {
         std::thread thread;
-        SizeType start_idx, end_idx;
-        SizeType iterations;
+        SizeT start_idx, end_idx;
+        SizeT iterations;
     };
 
-    SizeType window_size;
-    SizeType task_size;
-    SizeType threads_cnt;
-    std::vector<ValueType> ans;
-    std::vector<ValueType> data;
+    WinSizeT window_size;
+    SizeT task_size;
+    SizeT threads_cnt;
+    std::vector<ValueT> ans;
+    std::vector<ValueT> data;
 
   #ifdef PREFIX_SUM
-    std::vector<ValueType> pref_sum;
-    std::vector<SizeType> pref_finite_cnt;
+    std::vector<ValueT> pref_sum;
+    std::vector<SizeT> pref_finite_cnt;
 
-    void update_prefix_sum(const std::vector<ValueType> &data);
+    void update_prefix_sum(const std::vector<ValueT> &data);
   #endif
 
-    void worker(ThreadData &t_data, SizeType iterations,
+    void worker(ThreadData &t_data,
+                SizeT iterations,
                 barrier_t &sync_iteration);
+
     void start_threads(std::vector<ThreadData> &th,
-                       SizeType iterations,
+                       SizeT iterations,
                        barrier_t &sync_iteration);
-    ValueType average(SizeType start_idx, SizeType end_idx);
-    virtual void perform_single_iteration(SizeType start_idx,
-                                          SizeType end_idx) {}
+
+    ValueT average(SizeT start_idx, SizeT end_idx);
+
+    virtual void perform_single_iteration(SizeT start_idx, SizeT end_idx) {}
 };
 
   #ifdef PREFIX_SUM
 
-template<class ValueType, class SizeType>
-KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size, 
-                                          const ValueType *data, 
-                                          SizeType data_size) : 
-                                            window_size(window_size),
-                                            ans(data_size), 
-                                            data(data, data + data_size),
-                                            pref_sum(data_size + 1), 
-                                            pref_finite_cnt(data_size + 1)
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+KZGeneric<ValueT, SizeT, WinSizeT>::KZGeneric(
+        WinSizeT window_size, const ValueT *data, SizeT data_size)
+                : window_size(window_size),
+                  ans(data_size), data(data, data + data_size),
+                  pref_sum(data_size + 1), pref_finite_cnt(data_size + 1)
 {
     threads_cnt = std::thread::hardware_concurrency();
     #ifdef DEBUG
@@ -76,13 +78,12 @@ KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size,
 
   #else
 
-template<class ValueType, class SizeType>
-KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size, 
-                                          const ValueType *data, 
-                                          SizeType data_size) : 
-                                            window_size(window_size),
-                                            ans(data_size), 
-                                            data(data, data + data_size)
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+KZGeneric<ValueT, SizeT, WinSizeT>::KZGeneric(
+        WinSizeT window_size, const ValueT *data, SizeT data_size)
+                : window_size(window_size),
+                  ans(data_size), data(data, data + data_size)
 {
     threads_cnt = std::thread::hardware_concurrency();
     #ifdef DEBUG
@@ -95,8 +96,9 @@ KZGeneric<ValueType, SizeType>::KZGeneric(SizeType window_size,
   #endif
 
 
-template<class ValueType, class SizeType>
-void KZGeneric<ValueType, SizeType>::perform_iterations(SizeType iterations)
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+void KZGeneric<ValueT, SizeT, WinSizeT>::perform_iterations(SizeT iterations)
 {
     if (iterations <= 0)
         return;
@@ -118,12 +120,13 @@ void KZGeneric<ValueType, SizeType>::perform_iterations(SizeType iterations)
         thread_data.thread.join();
 }
 
-template<class ValueType, class SizeType>
-ValueType *KZGeneric<ValueType, SizeType>::get_ans()
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+ValueT *KZGeneric<ValueT, SizeT, WinSizeT>::get_ans()
 {
-    ValueType *answer;
+    ValueT *answer;
     try {
-        answer = new ValueType[data.size()];
+        answer = new ValueT[data.size()];
     } 
     catch (const std::bad_alloc&) {
         return nullptr; 
@@ -134,12 +137,14 @@ ValueType *KZGeneric<ValueType, SizeType>::get_ans()
     return answer;
 }
 
-template<class ValueType, class SizeType>
-void KZGeneric<ValueType, SizeType>::worker(KZGeneric::ThreadData &t_data, 
-                                            SizeType iterations,
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+void KZGeneric<ValueT, SizeT, WinSizeT>::worker(
+                                            KZGeneric::ThreadData &t_data, 
+                                            SizeT iterations,
                                             barrier_t &sync_iteration)
 {
-    for (SizeType i = 0; i < iterations - 1; ++i) {
+    for (SizeT i = 0; i < iterations - 1; ++i) {
         this->perform_single_iteration(t_data.start_idx, t_data.end_idx);
 
         // waiting for other threads to complete iteration
@@ -149,19 +154,21 @@ void KZGeneric<ValueType, SizeType>::worker(KZGeneric::ThreadData &t_data,
     this->perform_single_iteration(t_data.start_idx, t_data.end_idx);
 } 
 
-template<class ValueType, class SizeType>
-void KZGeneric<ValueType, SizeType>::start_threads(
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+void KZGeneric<ValueT, SizeT, WinSizeT>::start_threads(
                               std::vector<KZGeneric::ThreadData> &th,
-                              SizeType iterations,
+                              SizeT iterations,
                               barrier_t &sync_iteration)
 {
-    SizeType start_idx = 0;
+    SizeT start_idx = 0;
 
     for (auto &t_data : th) {
         t_data.start_idx = start_idx;
-        t_data.end_idx = (start_idx + task_size >= data.size()) ? 
-                                                data.size() - 1 : 
-                                                start_idx + task_size;
+        t_data.end_idx = (size_t(start_idx + task_size) >= data.size())
+                            ? data.size() - 1
+                            : start_idx + task_size;
+
         start_idx = t_data.end_idx;
 
         t_data.thread = std::thread(&KZGeneric::worker, this, 
@@ -173,27 +180,29 @@ void KZGeneric<ValueType, SizeType>::start_threads(
 
   #ifdef PREFIX_SUM
 
-template<class ValueType, class SizeType>
-ValueType KZGeneric<ValueType, SizeType>::average(SizeType start_idx, 
-                                                  SizeType end_idx)
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+ValueT KZGeneric<ValueT, SizeT, WinSizeT>::average(SizeT start_idx, 
+                                                   SizeT end_idx)
 {
     /* (window sum) = (sum containig window) - (sum before window) */
-    SizeType z = (pref_finite_cnt[end_idx + 1] - pref_finite_cnt[start_idx]);
+    SizeT z = (pref_finite_cnt[end_idx + 1] - pref_finite_cnt[start_idx]);
 
     if (z == 0)
-        return std::numeric_limits<ValueType>::quiet_NaN();
+        return std::numeric_limits<ValueT>::quiet_NaN();
 
     return (pref_sum[end_idx+1] - pref_sum[start_idx]) / z;
 }
 
-template<class ValueType, class SizeType>
-void KZGeneric<ValueType, SizeType>::update_prefix_sum(
-                                        const std::vector<ValueType> &data)
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+void KZGeneric<ValueT, SizeT, WinSizeT>::update_prefix_sum(
+                                        const std::vector<ValueT> &data)
 {
     pref_sum[0] = 0;
     pref_finite_cnt[0] = 0;
 
-    for (SizeType i = 1; i <= data.size(); ++i) {
+    for (SizeT i = 1; size_t(i) <= data.size(); ++i) {
         bool is_finite_flag = std::isfinite(data[i-1]);
         pref_sum[i] = pref_sum[i-1] + is_finite_flag * data[i-1];
         pref_finite_cnt[i] = pref_finite_cnt[i-1] + is_finite_flag;
@@ -202,21 +211,22 @@ void KZGeneric<ValueType, SizeType>::update_prefix_sum(
 
   #else
 
-template<class ValueType, class SizeType>
-ValueType KZGeneric<ValueType, SizeType>::average(SizeType start_idx, 
-                                                  SizeType end_idx)
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+ValueT KZGeneric<ValueT, SizeT, WinSizeT>::average(SizeT start_idx, 
+                                                   SizeT end_idx)
 {
-    SizeType z = 0;
-    ValueType s = 0;
+    SizeT z = 0;
+    ValueT s = 0;
 
-    for (SizeType i = start_idx; i <= end_idx; ++i) {
+    for (SizeT i = start_idx; i <= end_idx; ++i) {
         bool is_finite_flag = std::isfinite(data[i]);
         z += is_finite_flag;
         s += is_finite_flag * data[i];
     }
 
     if (z == 0)
-        return std::numeric_limits<ValueType>::quiet_NaN();
+        return std::numeric_limits<ValueT>::quiet_NaN();
 
     return s / z;
 }
