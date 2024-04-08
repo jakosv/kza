@@ -1,32 +1,36 @@
-import os
-import ctypes as ct
+from os import path
 import numpy as np
 import matplotlib.pyplot as plt
 
-script_path = os.path.realpath(__file__)
-libkza_path = os.path.dirname(script_path) + "/../src/libkza.so"
+import sys
+sys.path.append(path.dirname(path.dirname(__file__))+"/build")
 
-libkza = ct.CDLL(libkza_path)
-libkza.kz.argtypes = [
-    ct.POINTER(ct.c_double), 
-    ct.c_int, 
-    ct.POINTER(ct.c_int), 
-    ct.POINTER(ct.c_int), 
-    ct.c_int
-]
-libkza.kz.restype = ct.POINTER(ct.c_double)
-
-libkza.kza_free.argtypes = [ct.POINTER(ct.c_double)]
-libkza.kza_free.restype = None
+import libKZ_py
 
 def kz1d(x, m, k = 3):
-    xp = (ct.c_double * len(x))(*x)
+    xp = x
     dim = 1
-    size = (ct.c_int)(len(x))
-    window = (ct.c_int)(m)
-    res = libkza.kz(xp, dim, ct.byref(size), ct.byref(window), k)
+    size = len(x)
+    window = m
+    res = libKZ_py.kz(xp, dim, size, window, k)
     ans = res[:len(x)]
-    libkza.kza_free(res)
+    return ans
+
+def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
+        impute_tails = False):
+    xp = x
+    if y != None:
+        yp = y
+    else:
+        yp = kz1d(x,m)
+    if min_size == None:
+        min_size = round(0.05*m)
+    dim = 1
+    size = len(x)
+    window = m
+    res = libKZ_py.kza(xp, dim, size, yp, window, k,
+                     min_size, tol)
+    ans = res[:len(x)]
     return ans
 
 # Example

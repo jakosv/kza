@@ -120,6 +120,7 @@ void KZGeneric<ValueT, SizeT, WinSizeT>::perform_iterations(SizeT iterations)
         thread_data.thread.join();
 }
 
+
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
 ValueT *KZGeneric<ValueT, SizeT, WinSizeT>::get_ans()
