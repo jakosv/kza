@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(KZ)
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -fPIC")
+set(CMAKE_CXX_FLAGS "-Wall -fPIC")
 
 add_library(${PROJECT_NAME} SHARED kz.cpp kza.cpp)
 
@@ -19,17 +19,19 @@ if (NOT no_python)
 
     pybind11_add_module(libKZ_py pywrap.cpp kz.cpp kza.cpp)
 
-    target_include_directories(${PROJECT_NAME} PRIVATE ${PYBIND11_INCLUDE_DIRS})
+    target_include_directories(${PROJECT_NAME}
+                               PRIVATE ${PYBIND11_INCLUDE_DIRS})
 
     set_target_properties(libKZ_py
     PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "../build"
-    LIBRARY_OUTPUT_DIRECTORY "../build"
-    RUNTIME_OUTPUT_DIRECTORY "../build"
+        ARCHIVE_OUTPUT_DIRECTORY "../build"
+        LIBRARY_OUTPUT_DIRECTORY "../build"
+        RUNTIME_OUTPUT_DIRECTORY "../build"
     )
 endif()
     
-target_compile_definitions(${PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO})
+target_compile_definitions(${PROJECT_NAME} 
+                           PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO})
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
