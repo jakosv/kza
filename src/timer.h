@@ -1,3 +1,6 @@
+#ifndef TIMER_H_SENTRY
+#define TIMER_H_SENTRY
+
 #include <chrono>
 
 class Timer {
@@ -27,3 +30,5 @@ public:
 private:
     std::chrono::steady_clock::time_point begin, end;
 };
+
+#endif
