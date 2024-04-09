@@ -2,17 +2,13 @@
 
 ## Build 
 CMake has multiple options:
-- prefix_sum - prefix sum optimization;
-- kza_timer - time measurement;
-- python_library - build pybind11 module
+- `-DPREFIX_SUM` - prefix sum optimization;
+- `-DTIMER` - time measurement;
 
-Build shared library:
-```console
-$ cmake src
-$ make
-```
-The target libKZ.so file is located in the build directory
 
+
+## Usage examples
+Makefile builds shared library. For example, we can use it in python.
 To build python module pybind11 is needed
 If you dont want to provide pybind11 path in CMakeLists.txt, you can 
 install it globaly with:
@@ -28,17 +24,12 @@ minimum version 3.6 ( recommended 3.11 )
 
 Build bybind11 module:
 ```console
-$ cmake src -Dpython_library=true
+$ cd tests 
+$ cmake .
 $ make
 ```
-
-
-## Usage examples
-Makefile builds shared library. For example, we can use it in python.
-
+Run examples:
 ```console
-$ cmake src -Dpython_library=true -Dprefix_sum=true
-$ make
 $ python examples/kz_example.py 
 $ python examples/kza_example.py
 ```
@@ -46,7 +37,8 @@ $ python examples/kza_example.py
 ## Testing 
 
 ```console
-$ cmake src -Dpython_library=true -Dkza_timer=true
+$ cd tests 
+$ cmake . -Dkza_timer=true
 $ make
 $ python tests/run_tests.py
 ```

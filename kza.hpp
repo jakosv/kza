@@ -1,4 +1,6 @@
-#pragma once
+#ifndef KZA_HPP_SENTRY
+#define KZA_HPP_SENTRY
+
 
 #include <iostream>
 #include <vector>
@@ -7,16 +9,12 @@
 #include <functional>
 #include <cstring>
 #include <concepts>
-
-#ifdef TIMER
-#include "timer.h"
-#endif
-
 #include <thread>
 #include <barrier>
 
 
 typedef std::barrier<std::function<void()>> barrier_t;
+
 
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
@@ -235,49 +233,6 @@ private:
     }
 };
 
-template<class ValueT, std::unsigned_integral SizeT,
-         std::unsigned_integral WinSizeT>
-ValueT *kz1d(const ValueT *data, SizeT data_size, SizeT win_size,
-             SizeT iterations)
-{
-    KZ<ValueT, SizeT, WinSizeT> kz_data(win_size, data, data_size);
-
-    kz_data.perform_iterations(iterations);
-
-    return kz_data.get_ans();
-}
-
-template<class ValueT, std::unsigned_integral SizeT,
-         std::unsigned_integral WinSizeT>
-ValueT *kz(const ValueT *data, SizeT dimention, const SizeT *data_sizes,
-           const WinSizeT *window_sizes, SizeT iterations)
-{
-    ValueT *ans = NULL;
-
-#ifdef TIMER
-    Timer timer;
-#endif
-
-    switch (dimention) {
-    case 1:
-#ifdef TIMER
-        timer.start();
-#endif
-        ans = kz1d<ValueT, SizeT, WinSizeT>(data, data_sizes[0],
-                                            window_sizes[0]>>1,
-                                            iterations); 
-#ifdef TIMER
-        timer.stop();
-        timer.print_elapsed("kz(): ");
-#endif
-        break;
-    default:
-        fprintf(stderr, "kza: Too many dimensions\n");
-        break;
-    }
-
-    return ans;
-}
 
 
 template<class ValueT, std::unsigned_integral SizeT,
@@ -402,6 +357,84 @@ private:
 };
 
 
+#ifdef TIMER
+#include <chrono>
+
+class Timer {
+public:
+    inline void start()
+    {
+        begin = std::chrono::steady_clock::now();
+    }
+
+    inline void stop()
+    {
+        end = std::chrono::steady_clock::now();
+    }
+
+    inline long elapsed_time()
+    {
+        auto diff = end - begin;
+        return std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+    }
+
+    inline void print_elapsed(const char *msg)
+    {
+        long elapsed = this->elapsed_time();
+        std::cout << msg << elapsed << "ms" << std::endl;
+    }
+
+private:
+    std::chrono::steady_clock::time_point begin, end;
+};
+#endif
+
+
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+ValueT *kz1d(const ValueT *data, SizeT data_size, SizeT win_size,
+             SizeT iterations)
+{
+    KZ<ValueT, SizeT, WinSizeT> kz_data(win_size, data, data_size);
+
+    kz_data.perform_iterations(iterations);
+
+    return kz_data.get_ans();
+}
+
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+ValueT *kz(const ValueT *data, SizeT dimention, const SizeT *data_sizes,
+           const WinSizeT *window_sizes, SizeT iterations)
+{
+    ValueT *ans = NULL;
+
+#ifdef TIMER
+    Timer timer;
+#endif
+
+    switch (dimention) {
+    case 1:
+#ifdef TIMER
+        timer.start();
+#endif
+        ans = kz1d<ValueT, SizeT, WinSizeT>(data, data_sizes[0],
+                                            window_sizes[0]>>1,
+                                            iterations); 
+#ifdef TIMER
+        timer.stop();
+        timer.print_elapsed("kz(): ");
+#endif
+        break;
+    default:
+        fprintf(stderr, "kza: Too many dimensions\n");
+        break;
+    }
+
+    return ans;
+}
+
+
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
 static ValueT *kza1d(const ValueT *data, SizeT data_size, const ValueT *kz_res, 
@@ -467,3 +500,5 @@ ValueT *kza(const ValueT *data, SizeT dimention, const SizeT *data_sizes,
 
     return kza_ans;
 }
+
+#endif

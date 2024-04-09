@@ -18,7 +18,7 @@ pybind11_add_module(libKZ_py pywrap.cpp)
 
 set_target_properties(libKZ_py
 PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "../build"
-    LIBRARY_OUTPUT_DIRECTORY "../build"
-    RUNTIME_OUTPUT_DIRECTORY "../build"
+    ARCHIVE_OUTPUT_DIRECTORY "."
+    LIBRARY_OUTPUT_DIRECTORY "."
+    RUNTIME_OUTPUT_DIRECTORY "."
 )

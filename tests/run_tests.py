@@ -3,7 +3,7 @@ from os.path import isfile, join
 import numpy as np
 
 import sys
-sys.path.append(path.dirname(path.dirname(__file__))+"/build")
+sys.path.append(path.dirname(path.dirname(__file__)))
 
 import libKZ_py
 

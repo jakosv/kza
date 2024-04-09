@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import sys
-sys.path.append(path.dirname(path.dirname(__file__))+"/build")
+sys.path.append(path.dirname(path.dirname(__file__)))
 
 import libKZ_py
 
