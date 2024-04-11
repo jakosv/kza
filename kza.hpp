@@ -12,55 +12,66 @@
 #include <thread>
 #include <barrier>
 
+#ifdef TIMER
+#include <chrono>
+
+class Timer {
+public:
+    inline void start()
+    {
+        begin = std::chrono::steady_clock::now();
+    }
+
+    inline void stop()
+    {
+        end = std::chrono::steady_clock::now();
+    }
+
+    inline long elapsed_time()
+    {
+        auto diff = end - begin;
+        return std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+    }
+
+    inline void print_elapsed(const char *msg)
+    {
+        long elapsed = this->elapsed_time();
+        std::cout << msg << elapsed << "ms" << std::endl;
+    }
+
+private:
+    std::chrono::steady_clock::time_point begin, end;
+};
+#endif
+
 
 typedef std::barrier<std::function<void()>> barrier_t;
 
 
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
-class KZGeneric {
-public:
-
-#ifdef PREFIX_SUM
-    KZGeneric(WinSizeT window_size, const ValueT *data, SizeT data_size)
-                : window_size(window_size),
-                  ans(data_size), data(data, data + data_size),
-                  pref_sum(data_size + 1), pref_finite_cnt(data_size + 1)
-    {
-        threads_cnt = std::thread::hardware_concurrency();
-  #ifdef DEBUG
-        printf("Number of cores: %d\n", threads_cnt);
-  #endif
-
-        task_size = (data_size + threads_cnt-1) / threads_cnt;
-
-        update_prefix_sum(this->data); 
-    }
-
-#else
-
-    KZGeneric(WinSizeT window_size, const ValueT *data, SizeT data_size)
-                    : window_size(window_size),
-                      ans(data_size), data(data, data + data_size)
+class KZ
+{
+protected:
+    KZ(WinSizeT window_size, SizeT iterations)
+        : window_size(window_size), iterations(iterations)
     {
         threads_cnt = std::thread::hardware_concurrency();
 #ifdef DEBUG
         printf("Number of cores: %d\n", threads_cnt);
 #endif
-
-        task_size = (data_size + threads_cnt-1) / threads_cnt;
     }
 
+    virtual ~KZ() = default;
+
+    virtual void perform_single_iteration(SizeT start_idx, SizeT end_idx) {}
+
+#ifdef PREFIX_SUM
+    virtual void update_prefix_sum(const ValueT *data) {}
 #endif
 
-    virtual ~KZGeneric() = default;
-
-    void perform_iterations(SizeT iterations)
+    void perform_iterations()
     {
-
-        if (iterations <= 0)
-            return;
-
         auto on_iteration_complete = [this]() {
 #ifdef PREFIX_SUM
             this->update_prefix_sum(ans);
@@ -72,62 +83,26 @@ public:
         barrier_t sync_iteration(threads_cnt, on_iteration_complete);
         std::vector<ThreadData> th(threads_cnt);
 
-        this->start_threads(th, iterations, sync_iteration);
+        this->start_threads(th, sync_iteration);
 
         for (auto &thread_data : th)
             thread_data.thread.join();
     }
 
-    ValueT *get_ans()
-    {
-        ValueT *answer;
-        try {
-            answer = new ValueT[data.size()];
-        } 
-        catch (const std::bad_alloc&) {
-            return nullptr; 
-        }
-
-        std::copy(ans.begin(), ans.end(), answer);
-
-        return answer;
-    }
-
-protected:
     struct ThreadData {
         std::thread thread;
         SizeT start_idx, end_idx;
-        SizeT iterations;
     };
 
     WinSizeT window_size;
+    SizeT iterations;
     SizeT task_size;
     SizeT threads_cnt;
-    std::vector<ValueT> ans;
-    std::vector<ValueT> data;
+    SizeT data_size;
+    ValueT *ans;
+    ValueT *data;
 
-#ifdef PREFIX_SUM
-    std::vector<ValueT> pref_sum;
-    std::vector<SizeT> pref_finite_cnt;
-
-    void update_prefix_sum(const std::vector<ValueT> &data)
-    {
-        pref_sum[0] = 0;
-        pref_finite_cnt[0] = 0;
-
-        for (SizeT i = 1; size_t(i) <= data.size(); ++i) {
-            bool is_finite_flag = std::isfinite(data[i-1]);
-            pref_sum[i] = pref_sum[i-1] + is_finite_flag * data[i-1];
-            pref_finite_cnt[i] = pref_finite_cnt[i-1] + is_finite_flag;
-        }
-    }
-#endif
-
-    virtual void perform_single_iteration(SizeT start_idx, SizeT end_idx) {}
-
-    void worker(ThreadData &t_data,
-                SizeT iterations,
-                barrier_t &sync_iteration)
+    void worker(ThreadData &t_data, barrier_t &sync_iteration)
     {
         for (SizeT i = 0; i < iterations - 1; ++i) {
             this->perform_single_iteration(t_data.start_idx, t_data.end_idx);
@@ -139,27 +114,83 @@ protected:
         this->perform_single_iteration(t_data.start_idx, t_data.end_idx);
     }
 
-    void start_threads(std::vector<ThreadData> &th,
-                       SizeT iterations,
-                       barrier_t &sync_iteration)
+    void start_threads(std::vector<ThreadData> &th, barrier_t &sync_iteration)
     {
         SizeT start_idx = 0;
 
         for (auto &t_data : th) {
             t_data.start_idx = start_idx;
-            t_data.end_idx = (size_t(start_idx + task_size) >= data.size())
-                                ? data.size() - 1
+            t_data.end_idx = (size_t(start_idx + task_size) >= data_size)
+                                ? data_size - 1
                                 : start_idx + task_size;
 
             start_idx = t_data.end_idx;
 
-            t_data.thread = std::thread(&KZGeneric::worker, this, 
-                                        std::ref(t_data), iterations,
+            t_data.thread = std::thread(&KZ::worker, this, std::ref(t_data),
                                         std::ref(sync_iteration));
         }
     }
 
+};
+
+
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+class KZ1D: public KZ<ValueT, SizeT, WinSizeT> {
+public:
+    KZ1D(WinSizeT window_size, SizeT iterations) 
+        : KZ<ValueT, SizeT, WinSizeT>(window_size, iterations) {}
+
+    ValueT *operator()(const ValueT *data, SizeT data_size)
+    {
+        task_size = (data_size + threads_cnt-1) / threads_cnt;
+        this->data_size = data_size;
+
+        try {
+            this->data = new ValueT[data_size];
+            ans = new ValueT[data_size];
+        } 
+        catch (const std::bad_alloc&) {
+            return nullptr; 
+        }
+
+        std::copy(data, data + data_size, this->data);
+
 #ifdef PREFIX_SUM
+        pref_sum.resize(data_size + 1);
+        pref_finite_cnt.resize(data_size + 1);
+        update_prefix_sum(data); 
+#endif
+
+        if (iterations <= 0) {
+            delete[] ans;
+            return this->data;
+        }
+
+        this->perform_iterations();
+
+        delete[] this->data;
+
+        return ans;
+    }
+
+protected:
+
+#ifdef PREFIX_SUM
+    std::vector<ValueT> pref_sum;
+    std::vector<SizeT> pref_finite_cnt;
+
+    void update_prefix_sum(const ValueT *data)
+    {
+        pref_sum[0] = 0;
+        pref_finite_cnt[0] = 0;
+
+        for (SizeT i = 1; i <= data_size; ++i) {
+            bool is_finite_flag = std::isfinite(data[i-1]);
+            pref_sum[i] = pref_sum[i-1] + is_finite_flag * data[i-1];
+            pref_finite_cnt[i] = pref_finite_cnt[i-1] + is_finite_flag;
+        }
+    }
 
     ValueT average(SizeT start_idx, SizeT end_idx)
     {
@@ -193,21 +224,16 @@ protected:
     }
 
 #endif
-};
 
+protected:
+    using KZ<ValueT, SizeT, WinSizeT>::window_size;
+    using KZ<ValueT, SizeT, WinSizeT>::data_size;
+    using KZ<ValueT, SizeT, WinSizeT>::task_size;
+    using KZ<ValueT, SizeT, WinSizeT>::iterations;
+    using KZ<ValueT, SizeT, WinSizeT>::threads_cnt;
+    using KZ<ValueT, SizeT, WinSizeT>::data;
+    using KZ<ValueT, SizeT, WinSizeT>::ans;
 
-template<class ValueT, std::unsigned_integral SizeT,
-         std::unsigned_integral WinSizeT>
-class KZ: public KZGeneric<ValueT, SizeT, WinSizeT> {
-public:
-    KZ(WinSizeT window_size, const ValueT *data, SizeT data_size) : 
-        KZGeneric<ValueT, SizeT, WinSizeT>(window_size, data, data_size)
-    {}
-
-private:
-    using KZGeneric<ValueT, SizeT, WinSizeT>::window_size;
-    using KZGeneric<ValueT, SizeT, WinSizeT>::data;
-    using KZGeneric<ValueT, SizeT, WinSizeT>::ans;
 
     // window length is 2*window_size+1
     inline SizeT window_left_bound(SizeT win_center)
@@ -219,8 +245,8 @@ private:
 
     inline SizeT window_right_bound(SizeT win_center)
     {
-        return (size_t(win_center + window_size) >= data.size())
-                ? data.size() - 1
+        return (size_t(win_center + window_size) >= data_size)
+                ? data_size - 1
                 : win_center + window_size;
     }
 
@@ -237,29 +263,55 @@ private:
 
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
-class KZA: public KZGeneric<ValueT, SizeT, WinSizeT> {
-public:
+class KZA
+{
+protected:
+    KZA(WinSizeT min_window_size, ValueT tolerance)
+        : min_window_size(min_window_size), tolerance(tolerance) {}
 
-    KZA(WinSizeT window_size, WinSizeT min_window_size,
-        ValueT tolerance, const ValueT *data, SizeT data_size, 
-        const ValueT *kz_result) : 
-            KZGeneric<ValueT, SizeT, WinSizeT>(window_size, data, data_size),
-            min_window_size(min_window_size), tolerance(tolerance),
-            kz_diff(data_size), kz_derivative(data_size)
-    {
-        this->differenced(kz_result, data_size, window_size);
-    }
-
-private:
     WinSizeT min_window_size;
     ValueT tolerance;
     std::vector<ValueT> kz_diff;
     ValueT max_diff;
     std::vector<ValueT> kz_derivative;
+};
 
-    using KZGeneric<ValueT, SizeT, WinSizeT>::window_size;
-    using KZGeneric<ValueT, SizeT, WinSizeT>::data;
-    using KZGeneric<ValueT, SizeT, WinSizeT>::ans;
+template<class ValueT, std::unsigned_integral SizeT,
+         std::unsigned_integral WinSizeT>
+class KZA1D: public KZA<ValueT, SizeT, WinSizeT>,
+             public KZ1D<ValueT, SizeT, WinSizeT>
+{
+public:
+
+    KZA1D(WinSizeT window_size, WinSizeT min_window_size,
+          ValueT tolerance, SizeT iterations)
+            : KZA<ValueT, SizeT, WinSizeT>(min_window_size, tolerance),
+              KZ1D<ValueT, SizeT, WinSizeT>(window_size, iterations) {}
+
+    ValueT *operator()(const ValueT *data, SizeT data_size,
+                       const ValueT *kz_result)
+    {
+        kz_diff.resize(data_size);
+        kz_derivative.resize(data_size);
+
+        differenced(kz_result, data_size, this->window_size);
+
+        return KZ1D<ValueT, SizeT, WinSizeT>::operator()(data, data_size); 
+    }
+
+private:
+    using KZ<ValueT, SizeT, WinSizeT>::window_size;
+    using KZ<ValueT, SizeT, WinSizeT>::data_size;
+    using KZ<ValueT, SizeT, WinSizeT>::iterations;
+    using KZ<ValueT, SizeT, WinSizeT>::data;
+    using KZ<ValueT, SizeT, WinSizeT>::ans;
+
+    using KZA<ValueT, SizeT, WinSizeT>::min_window_size;
+    using KZA<ValueT, SizeT, WinSizeT>::tolerance;
+    using KZA<ValueT, SizeT, WinSizeT>::kz_diff;
+    using KZA<ValueT, SizeT, WinSizeT>::max_diff;
+    using KZA<ValueT, SizeT, WinSizeT>::kz_derivative;
+
 
     inline WinSizeT normalize_left_win(SizeT left_win, SizeT window_center)
     {
@@ -281,7 +333,7 @@ private:
                             ? min_window_size
                             : right_win;
 
-        SizeT max_right_win_size = data.size() - window_center - 1;
+        SizeT max_right_win_size = data_size - window_center - 1;
         new_size = (new_size > max_right_win_size)
                     ? max_right_win_size
                     : new_size;
@@ -357,49 +409,15 @@ private:
 };
 
 
-#ifdef TIMER
-#include <chrono>
-
-class Timer {
-public:
-    inline void start()
-    {
-        begin = std::chrono::steady_clock::now();
-    }
-
-    inline void stop()
-    {
-        end = std::chrono::steady_clock::now();
-    }
-
-    inline long elapsed_time()
-    {
-        auto diff = end - begin;
-        return std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
-    }
-
-    inline void print_elapsed(const char *msg)
-    {
-        long elapsed = this->elapsed_time();
-        std::cout << msg << elapsed << "ms" << std::endl;
-    }
-
-private:
-    std::chrono::steady_clock::time_point begin, end;
-};
-#endif
-
 
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
 ValueT *kz1d(const ValueT *data, SizeT data_size, SizeT win_size,
              SizeT iterations)
 {
-    KZ<ValueT, SizeT, WinSizeT> kz_data(win_size, data, data_size);
+    KZ1D<ValueT, SizeT, WinSizeT> kz1d_algo(win_size, iterations);
 
-    kz_data.perform_iterations(iterations);
-
-    return kz_data.get_ans();
+    return kz1d_algo(data, data_size);
 }
 
 template<class ValueT, std::unsigned_integral SizeT,
@@ -441,12 +459,9 @@ static ValueT *kza1d(const ValueT *data, SizeT data_size, const ValueT *kz_res,
                      SizeT win_size, SizeT min_win_size, SizeT iterations, 
                      ValueT tolerance)
 {
-    KZA<ValueT, SizeT, WinSizeT> kza_data(win_size, min_win_size, tolerance,
-                                          data, data_size, kz_res);
-
-    kza_data.perform_iterations(iterations);
-
-    return kza_data.get_ans();
+    KZA1D<ValueT, SizeT, WinSizeT> kza1d_algo(win_size, min_win_size, 
+                                              tolerance, iterations);
+    return kza1d_algo(data, data_size, kz_res);
 }
 
 template<class ValueT, std::unsigned_integral SizeT,
@@ -500,5 +515,6 @@ ValueT *kza(const ValueT *data, SizeT dimention, const SizeT *data_sizes,
 
     return kza_ans;
 }
+
 
 #endif
