@@ -63,6 +63,11 @@ public:
 
     virtual ~KZ() = default;
 
+    inline void set_iterations(SizeT iterations)
+    {
+        this->iterations = iterations;
+    }
+
 protected:
     struct ThreadData {
         std::thread thread;
@@ -168,6 +173,11 @@ public:
         return std::move(ans);
     }
 
+    inline void set_window(WinSizeT window)
+    {
+        half_window = window >> 1;
+    }
+
 protected:
 
 #ifdef PREFIX_SUM
@@ -259,12 +269,15 @@ template<class ValueT, std::unsigned_integral SizeT,
 class KZ2D: public KZ<ValueT, SizeT, WinSizeT>
 {
 public:
-    KZ2D(std::vector<WinSizeT> window_sizes, SizeT iterations) 
+    KZ2D(const std::vector<WinSizeT> window_sizes, SizeT iterations) 
         : KZ<ValueT, SizeT, WinSizeT>(iterations)
     {
+        /*
         half_window.resize(window_sizes.size());
         for (int i = 0; i < 2; i++)
             half_window[i] >>= 1;
+            */
+        this->set_window(window_sizes);
     }
 
     std::vector<std::vector<ValueT>> operator()(
@@ -295,6 +308,13 @@ public:
         });
 
         return std::move(ans);
+    }
+
+    inline void set_window(const std::vector<WinSizeT> &window)
+    {
+        half_window.resize(window.size());
+        for (int i = 0; i < 2; i++)
+            half_window[i] >>= 1;
     }
 
 protected:
@@ -384,6 +404,17 @@ template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
 class KZAExtension
 {
+public:
+    inline void set_min_window(WinSizeT min_window)
+    {
+        min_window_size = min_window; 
+    }
+
+    inline void set_tolerance(ValueT tol)
+    {
+        tolerance = tol; 
+    }
+
 protected:
     KZAExtension(WinSizeT min_window_size, ValueT tolerance)
         : min_window_size(min_window_size), tolerance(tolerance) {}
@@ -423,6 +454,11 @@ public:
 
         // call KZ algorithm with overrided perform_single_iteration() method
         return KZ1D<ValueT, SizeT, WinSizeT>::operator()(data); 
+    }
+
+    inline void set_window(WinSizeT window)
+    {
+        half_window = window;           
     }
 
 private:
