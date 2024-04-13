@@ -20,10 +20,8 @@ def get_input_files(path):
 
 def kz1d(x, m, k = 3):
     xp = x
-    dim = 1
-    size = len(x)
     window = m
-    res = libKZ_py.kz(xp, dim, size, window, k)
+    res = libKZ_py.kz1d(xp, window, k)
     ans = res[:len(x)]
     return ans
 
@@ -39,7 +37,7 @@ def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
     dim = 1
     size = len(x)
     window = m
-    res = libKZ_py.kza(xp, dim, size, yp, window, k,
+    res = libKZ_py.kza(xp, yp, window, k,
                      min_size, tol)
     ans = res[:len(x)]
     return ans
