@@ -1,4 +1,13 @@
 # Kolmogorov-Zurbenko Adaptive Filter
+Header-only library with implementation of
+Adaptive Kolmogorov-Zurbenko filter for different dimensions.
+
+[Documentation](
+https://github.com/jakosv/kza/blob/main/doc/kza_project_documentation.pdf)
+
+See also R [kza package](
+https://cran.r-project.org/web/packages/kza/index.html)
+
 
 ## Build options
 CMake has multiple options:
