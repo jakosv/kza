@@ -56,9 +56,12 @@ $ python run_tests.py
 ```
 
 ## Authors:
-Vadim Marchenko (@jakosv) - worked on kza.hpp
-Polina Zolotareva (@polin-drom) - worked on doc/kza_project_documentation.pdf
-Kirill Avdeichuk (@DotaSlaer) - worked on tests
+[Vadim Marchenko](https://github.com/jakosv) - worked on kza.hpp
+
+[Polina Zolotareva](https://github.com/polin-drom) - 
+worked on doc/kza_project_documentation.pdf
+
+[Kirill Avdeichuk](https://github.com/DotaSlaer) - worked on tests
 
 Scientific supervisor: Denis Vasilyevich Parfenov (promasterden@yandex.ru)
 
