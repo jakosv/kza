@@ -1,15 +1,25 @@
 # Kolmogorov-Zurbenko Adaptive Filter
 
-## Build 
+## Build options
 CMake has multiple options:
 - `-DPREFIX_SUM` - prefix sum optimization;
 - `-DTIMER` - time measurement;
 
 
 
-## Usage examples
-Makefile builds shared library. For example, we can use it in python.
-To build python module pybind11 is needed
+## Usage
+To use the library, you need to include the header file kza.hpp in 
+your project. After that, you can use one of the algorithms, for 
+example one-dimensional Kolmogorov-Zurbenko Adaptive filter:
+```
+KZ1D<double, size_t, unsigned> kz1d(window, iterations);
+std::vector<double> kz_ans = kz1d(x);
+KZA1D<double, size_t, unsigned> kz1d(window, min_win, tolerance, iterations);
+std::vector<double> kza_ans = kza1d(x, kz_ans);
+```
+
+You can also run examples of using the library in Python.
+To build a Python module, you need pybind11.
 If you dont want to provide pybind11 path in CMakeLists.txt, you can 
 install it globaly with:
 ```console
@@ -44,3 +54,11 @@ $ cmake . -Dkza_timer=true
 $ make
 $ python run_tests.py
 ```
+
+## Authors:
+Vadim Marchenko (@jakosv) - worked on kza.hpp
+Polina Zolotareva (@polin-drom) - worked on doc/kza_project_documentation.pdf
+Kirill Avdeichuk (@DotaSlaer) - worked on tests
+
+Scientific supervisor: Denis Vasilyevich Parfenov (promasterden@yandex.ru)
+
