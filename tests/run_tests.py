@@ -1,45 +1,11 @@
 from os import listdir, path 
 from os.path import isfile, join
-import ctypes as ct
 import numpy as np
 
-def get_dynamic_lib(path):
-    libkza_path = path + "/../src/libkza.so"
-    libkza = ct.CDLL(libkza_path)
-    return libkza
+import sys
+sys.path.append(path.dirname(path.dirname(__file__)))
 
-def get_kz_func(libkza):
-    libkza.kz.argtypes = [
-        ct.POINTER(ct.c_double), 
-        ct.c_int, 
-        ct.POINTER(ct.c_int), 
-        ct.POINTER(ct.c_int), 
-        ct.c_int
-    ]
-    libkza.kz.restype = ct.POINTER(ct.c_double)
-    return libkza.kz
-
-def get_kza_func(libkza):
-    libkza.kza.argtypes = [
-        ct.POINTER(ct.c_double), 
-        ct.c_int, 
-        ct.POINTER(ct.c_int), 
-        ct.POINTER(ct.c_double), 
-        ct.POINTER(ct.c_int), 
-        ct.c_int,
-        ct.c_double,
-        ct.c_double
-    ]
-    libkza.kza.restype = ct.POINTER(ct.c_double)
-
-    libkza.kza_free.argtypes = [ct.POINTER(ct.c_double)]
-    libkza.kza_free.restype = None
-    return libkza.kza
-
-def get_kza_free_func(libkza):
-    libkza.kza_free.argtypes = [ct.POINTER(ct.c_double)]
-    libkza.kza_free.restype = None
-    return libkza.kza_free
+import libKZ_py
 
 def get_input_files(path):
     input_files = []
@@ -52,37 +18,33 @@ def get_input_files(path):
                     input_files.append(f)
     return input_files
 
-def kz1d(x, m, k, kz, kza_free):
-    xp = (ct.c_double * len(x))(*x)
-    dim = 1
-    size = (ct.c_int)(len(x))
-    window = (ct.c_int)(m)
-    res = kz(xp, dim, ct.byref(size), ct.byref(window), k)
+def kz1d(x, m, k = 3):
+    xp = x
+    window = m
+    res = libKZ_py.kz1d(xp, window, k)
     ans = res[:len(x)]
-    kza_free(res)
     return ans
 
-def kza1d(x, m, k, kza, kz, kza_free):
-    min_size = 10
-    tol = 1.0e-5
-    y = kz1d(x, m, k, kz, kza_free) 
-    xp = (ct.c_double * len(x))(*x)
-    yp = (ct.c_double * len(y))(*y)
+def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
+        impute_tails = False):
+    xp = x
+    if y != None:
+        yp = y
+    else:
+        yp = kz1d(x,m)
+    if min_size == None:
+        min_size = round(0.05*m)
     dim = 1
-    size = (ct.c_int)(len(x))
-    window = (ct.c_int)(m)
-    res = kza(xp, dim, ct.byref(size), yp, ct.byref(window), k, min_size, tol)
+    size = len(x)
+    window = m
+    res = libKZ_py.kza(xp, yp, window, k,
+                     min_size, tol)
     ans = res[:len(x)]
-    kza_free(res)
     return ans
 
-def run_func_tests(func_name, path, funcs):
+def run_func_tests(func_name, path):
     tests_path = join(path, func_name + '/')
     input_files = get_input_files(tests_path)
-
-    kz = funcs["kz"]
-    kza = funcs["kza"]
-    kza_free = funcs["kza_free"]
 
     for f in input_files:
         file_name = f.split('.')[0]
@@ -94,35 +56,24 @@ def run_func_tests(func_name, path, funcs):
         if func_name == "kz1d":
             win_size = 30
             iterations = 3
-            res = kz1d(x, win_size, iterations, kz, kza_free)
+            res = kz1d(x, win_size, k=iterations)
         elif func_name == "kza1d":
             win_size = 365
             iterations = 3
-            res = kza1d(x, win_size, iterations, kza, kz, kza_free)
+            res = kza1d(x, win_size, k=iterations, min_size=10)
 
         if not np.allclose(res, ans):
             diff = res - ans
             print(diff)
-            print(f"test [{func_name}/{file_name}] failed")
+            print("test "+str(func_name)+"/"+str(file_name)+" failed")
             
 
 def main():
     script_path = path.dirname(path.realpath(__file__))
 
-    funcs = {
-        "kz": None,
-        "kza": None,
-        "kza_free": None
-    }
-
-    libkza = get_dynamic_lib(script_path)
-    funcs["kz"] = get_kz_func(libkza)
-    funcs["kza"] = get_kza_func(libkza)
-    funcs["kza_free"] = get_kza_free_func(libkza)
-
     tests_path = script_path
-    run_func_tests("kz1d", tests_path, funcs)
-    run_func_tests("kza1d", tests_path, funcs)
+    run_func_tests("kz1d", tests_path)
+    run_func_tests("kza1d", tests_path)
 
 if __name__ == "__main__":
     main()
