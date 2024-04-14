@@ -446,6 +446,13 @@ public:
         tolerance = tol; 
     }
 
+    inline SizeT adaptive_window(WinSizeT window, ValueT kz_d, ValueT max_d)
+    {
+        return (std::fabs(max_d) > 0) 
+               ? std::floor(window * (1 - kz_d/max_d))
+               : window;
+    }
+
 protected:
     KZAExtension(WinSizeT min_window_size, ValueT tolerance)
         : min_window_size(min_window_size), tolerance(tolerance) {}
@@ -509,8 +516,7 @@ private:
         WinSizeT left_win_size, right_win_size;
 
         for (SizeT time = start_idx; time <= end_idx; ++time) {
-            this->calc_adaptive_window_sizes(left_win_size,
-                                             right_win_size,
+            this->calc_adaptive_half_windows(left_win_size, right_win_size,
                                              time);
 
             ans[time] = this->average(time - left_win_size,
@@ -546,22 +552,22 @@ private:
         return new_size;
     }
 
-    inline void calc_adaptive_window_sizes(WinSizeT &left_win_size, 
+    inline void calc_adaptive_half_windows(WinSizeT &left_win_size, 
                                            WinSizeT &right_win_size, 
                                            SizeT t)  
     {
-        SizeT adaptive_win_size = 
-            std::floor(half_window * (1 - kz_diff[t]/max_diff));
+        SizeT adaptive_size = this->adaptive_window(half_window, 
+                                                    kz_diff[t], max_diff);
 
         // derivative[t] = 0
         if (std::fabs(kz_derivative[t]) < tolerance) {
-            left_win_size = normalize_left_win(adaptive_win_size, t);
-            right_win_size = normalize_right_win(adaptive_win_size, t);
+            left_win_size = normalize_left_win(adaptive_size, t);
+            right_win_size = normalize_right_win(adaptive_size, t);
         } else if (kz_derivative[t] < 0) {
-            left_win_size = normalize_left_win(adaptive_win_size, t);
+            left_win_size = normalize_left_win(adaptive_size, t);
             right_win_size = normalize_right_win(half_window, t);
         } else {
-            right_win_size = normalize_right_win(adaptive_win_size, t);
+            right_win_size = normalize_right_win(adaptive_size, t);
             left_win_size = normalize_left_win(half_window, t);
         }
     }
@@ -664,14 +670,14 @@ private:
 
         for (SizeT row = start_idx; row <= end_idx; ++row) {
             for (SizeT col = 0; col < cols; ++col) {
-                rows_win = calc_adaptive_window(row, half_win_rows, rows,
-                                                kz_dy[row][col], max_dy, 
-                                                y_derivative[row][col]);
-                cols_win = calc_adaptive_window(col, half_win_cols, cols,
-                                                kz_dx[row][col], max_dx, 
-                                                x_derivative[row][col]);
+                rows_win = adaptive_half_windows(row, half_win_rows, rows,
+                                                 kz_dy[row][col], max_dy, 
+                                                 y_derivative[row][col]);
+                cols_win = adaptive_half_windows(col, half_win_cols, cols,
+                                                 kz_dx[row][col], max_dx, 
+                                                 x_derivative[row][col]);
 
-                // check if not zero area
+                // check that area is not zero
                 ans[row][col] = (rows_win.second + rows_win.first +
                                  cols_win.second + cols_win.first)
 
@@ -714,35 +720,32 @@ private:
         return new_size;
     }
 
-    std::pair<WinSizeT, WinSizeT> calc_adaptive_window(
+    std::pair<WinSizeT, WinSizeT> adaptive_half_windows(
                                     SizeT win_center, WinSizeT window,
                                     SizeT data_size,
                                     ValueT kz_d, ValueT max_d,
                                     ValueT derivative)
     {
-        std::pair<WinSizeT, WinSizeT> adaptive_window;
-        SizeT adaptive = std::floor(window * (1 - kz_d/max_d));
+        std::pair<WinSizeT, WinSizeT> adaptive_win;
+        SizeT adaptive = this->adaptive_window(window, kz_d, max_d);
 
         // derivative = 0
         if (std::fabs(derivative) < tolerance) {
-            adaptive_window.first = 
-                this->normalize_left_win(adaptive, win_center);
-            adaptive_window.second = 
-                this->normalize_right_win(adaptive, win_center, data_size);
+            adaptive_win.first = normalize_left_win(adaptive, win_center);
+            adaptive_win.second = 
+                normalize_right_win(adaptive, win_center, data_size);
         } else
         if (derivative < 0) {
-            adaptive_window.first = 
-                this->normalize_left_win(adaptive, win_center);
-            adaptive_window.second =
-                this->normalize_right_win(window, win_center, data_size);
+            adaptive_win.first = normalize_left_win(adaptive, win_center);
+            adaptive_win.second =
+                normalize_right_win(window, win_center, data_size);
         } else {
-            adaptive_window.second = 
-                this->normalize_right_win(adaptive, win_center, data_size);
-            adaptive_window.first = 
-                this->normalize_left_win(window, win_center);
+            adaptive_win.second = 
+                normalize_right_win(adaptive, win_center, data_size);
+            adaptive_win.first = normalize_left_win(window, win_center);
         }
 
-        return adaptive_window;
+        return adaptive_win;
     }
 
     inline void calc_kz_difference(

@@ -24,8 +24,6 @@ def kza2d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
         yp = kz2d(x, m)
     if min_size == None:
         min_size = round(0.05*m[0])
-    print(min_size)
-    print(m)
     window = m
     res = np.array(libKZ_py.kza2d(xp, yp, window, k, min_size, tol))
     return res
