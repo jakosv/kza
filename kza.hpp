@@ -272,11 +272,6 @@ public:
     KZ2D(const std::vector<WinSizeT> window_sizes, SizeT iterations) 
         : KZ<ValueT, SizeT, WinSizeT>(iterations)
     {
-        /*
-        half_window.resize(window_sizes.size());
-        for (int i = 0; i < 2; i++)
-            half_window[i] >>= 1;
-            */
         this->set_window(window_sizes);
     }
 
@@ -292,7 +287,7 @@ public:
 
 #ifdef PREFIX_SUM
         pref_sum.resize(rows + 1, std::vector<ValueT>(cols + 1));
-        pref_finite_cnt.resize(rows + 1, std::vector<ValueT>(cols + 1));
+        pref_finite_cnt.resize(rows + 1, std::vector<SizeT>(cols + 1));
         update_prefix_sum(data); 
 #endif
 
@@ -303,7 +298,7 @@ public:
 #ifdef PREFIX_SUM
             this->update_prefix_sum(ans);
 #else
-            std::swap(data, ans);
+            data.swap(ans);
 #endif
         });
 
@@ -312,9 +307,14 @@ public:
 
     inline void set_window(const std::vector<WinSizeT> &window)
     {
-        half_window.resize(window.size());
-        for (int i = 0; i < 2; i++)
-            half_window[i] >>= 1;
+        half_window.resize(2);
+        if (window.size() == 2) {
+            for (SizeT i = 0; i < 2; ++i)
+                half_window[i] = window[i] >> 1;
+        } else {
+            for (SizeT i = 0; i < 2; ++i)
+                half_window[i] = window[0] >> 1;
+        }
     }
 
 protected:
@@ -343,7 +343,7 @@ protected:
         ValueT s = 0;
 
         for (SizeT i = start_row; i <= end_row; ++i) {
-            for (SizeT j = start_col; i <= end_col; ++j) {
+            for (SizeT j = start_col; j <= end_col; ++j) {
                 bool is_finite_flag = std::isfinite(data[i][j]);
                 z += is_finite_flag;
                 s += is_finite_flag * data[i][j];
@@ -371,7 +371,7 @@ private:
     inline SizeT window_right_bound(SizeT win_center, WinSizeT half_win,
                                     SizeT data_size)
     {
-        return (size_t(win_center + half_win) >= data_size)
+        return (win_center + half_win >= data_size)
                 ? data_size - 1
                 : win_center + half_win;
     }
@@ -379,13 +379,15 @@ private:
     inline void perform_single_iteration(SizeT start_idx,
                                          SizeT end_idx) override
     {
-        for (SizeT i = 0; i < rows; ++i)
-            for (SizeT j = 0; j < cols; ++j)
-                ans[i][j] = this->average(
-                        this->window_left_bound(i, half_window[0]),
-                        this->window_right_bound(i, half_window[0], rows),
-                        this->window_left_bound(j, half_window[1]),
-                        this->window_right_bound(j, half_window[1], cols));
+        for (SizeT row = start_idx; row <= end_idx; ++row) {
+            for (SizeT col = 0; col < cols; ++col) {
+                ans[row][col] = this->average(
+                    this->window_left_bound(row, half_window[0]),
+                    this->window_right_bound(row, half_window[0], rows),
+                    this->window_left_bound(col, half_window[1]),
+                    this->window_right_bound(col, half_window[1], cols));
+            }
+        }
     }
 
 protected:
