@@ -30,8 +30,10 @@ $ make
 ```
 Run examples:
 ```console
-$ python examples/kz_example.py 
-$ python examples/kza_example.py
+$ python examples/kz1d_example.py 
+$ python examples/kz2d_example.py 
+$ python examples/kza1d_example.py
+$ python examples/kza2d_example.py
 ```
 
 ## Testing 
@@ -40,5 +42,5 @@ $ python examples/kza_example.py
 $ cd tests 
 $ cmake . -Dkza_timer=true
 $ make
-$ python tests/run_tests.py
+$ python run_tests.py
 ```

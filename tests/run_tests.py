@@ -37,8 +37,7 @@ def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
     dim = 1
     size = len(x)
     window = m
-    res = libKZ_py.kza(xp, yp, window, k,
-                     min_size, tol)
+    res = libKZ_py.kza1d(xp, yp, window, k, min_size, tol)
     ans = res[:len(x)]
     return ans
 

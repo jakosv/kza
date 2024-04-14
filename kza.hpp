@@ -80,10 +80,6 @@ protected:
 
     virtual void perform_single_iteration(SizeT start_idx, SizeT end_idx) = 0;
 
-#ifdef PREFIX_SUM
-    virtual void update_prefix_sum(const std::vector<ValueT> &data) = 0;
-#endif
-
     void perform_iterations(std::function<void()> on_iteration_complete)
     {
         barrier_t sync_iteration(threads_cnt, on_iteration_complete);
@@ -184,14 +180,15 @@ protected:
     std::vector<ValueT> pref_sum;
     std::vector<SizeT> pref_finite_cnt;
 
-    void update_prefix_sum(const std::vector<ValueT> &data) override
+    void update_prefix_sum(const std::vector<ValueT> &data)
     {
         pref_sum[0] = 0;
         pref_finite_cnt[0] = 0;
+        bool is_finite_flag;
 
         for (SizeT i = 1; size_t(i) <= data.size(); ++i) {
-            bool is_finite_flag = std::isfinite(data[i-1]);
-            pref_sum[i] = pref_sum[i-1] + is_finite_flag * data[i-1];
+            is_finite_flag = std::isfinite(data[i-1]);
+            pref_sum[i] = pref_sum[i-1] + (is_finite_flag ? data[i-1] : 0);
             pref_finite_cnt[i] = pref_finite_cnt[i-1] + is_finite_flag;
         }
     }
@@ -202,10 +199,8 @@ protected:
         SizeT z =
             (pref_finite_cnt[end_idx + 1] - pref_finite_cnt[start_idx]);
 
-        if (z == 0)
-            return std::numeric_limits<ValueT>::quiet_NaN();
-
-        return (pref_sum[end_idx+1] - pref_sum[start_idx]) / z;
+        return (z != 0) ? (pref_sum[end_idx + 1] - pref_sum[start_idx]) / z
+                        : std::numeric_limits<ValueT>::quiet_NaN();
     }
 
 #else
@@ -214,17 +209,15 @@ protected:
     {
         SizeT z = 0;
         ValueT s = 0;
+        bool is_finite_flag;
 
         for (SizeT i = start_idx; i <= end_idx; ++i) {
-            bool is_finite_flag = std::isfinite(data[i]);
+            is_finite_flag = std::isfinite(data[i]);
             z += is_finite_flag;
-            s += is_finite_flag * data[i];
+            s += (is_finite_flag ? data[i] : 0);
         }
 
-        if (z == 0)
-            return std::numeric_limits<ValueT>::quiet_NaN();
-
-        return s / z;
+        return (z != 0) ? s/z : std::numeric_limits<ValueT>::quiet_NaN();
     }
 
 #endif
@@ -246,7 +239,7 @@ private:
                 : win_center + half_window;
     }
 
-    inline void perform_single_iteration(SizeT start_idx,
+    inline void perform_single_iteration(SizeT start_idx, 
                                          SizeT end_idx) override
     {
         for (SizeT time = start_idx; time <= end_idx; ++time)
@@ -286,8 +279,8 @@ public:
         ans.resize(rows, std::vector<ValueT>(cols));
 
 #ifdef PREFIX_SUM
-        pref_sum.resize(rows + 1, std::vector<ValueT>(cols + 1));
-        pref_finite_cnt.resize(rows + 1, std::vector<SizeT>(cols + 1));
+        pref_sum.resize(rows + 1, std::vector<ValueT>(cols + 1, 0));
+        pref_finite_cnt.resize(rows + 1, std::vector<SizeT>(cols + 1, 0));
         update_prefix_sum(data); 
 #endif
 
@@ -307,14 +300,8 @@ public:
 
     inline void set_window(const std::vector<WinSizeT> &window)
     {
-        half_window.resize(2);
-        if (window.size() == 2) {
-            for (SizeT i = 0; i < 2; ++i)
-                half_window[i] = window[i] >> 1;
-        } else {
-            for (SizeT i = 0; i < 2; ++i)
-                half_window[i] = window[0] >> 1;
-        }
+        half_win_rows = window[0] >> 1;
+        half_win_cols = window.size() > 1 ? window[1] >> 1 : half_win_rows;
     }
 
 protected:
@@ -323,15 +310,38 @@ protected:
     std::vector<std::vector<ValueT>> pref_sum;
     std::vector<std::vector<SizeT>> pref_finite_cnt;
 
-    void update_prefix_sum(
-            const std::vector<std::vector<ValueT>> &data) override
+    void update_prefix_sum(const std::vector<std::vector<ValueT>> &data)
     {
-        // calc 2D prefix sum implemetation
+        bool is_finite_flag;
+
+        for (SizeT i = 1; i <= rows; ++i) {
+            for (SizeT j = 1; j <= cols; ++j) {
+                is_finite_flag = std::isfinite(data[i-1][j-1]);
+                pref_sum[i][j] = 
+                    pref_sum[i-1][j] + pref_sum[i][j-1] - pref_sum[i-1][j-1];
+                pref_sum[i][j] += (is_finite_flag ? data[i-1][j-1] : 0);
+                pref_finite_cnt[i][j] = pref_finite_cnt[i-1][j] + 
+                                        pref_finite_cnt[i][j-1] -
+                                        pref_finite_cnt[i-1][j-1] +
+                                        is_finite_flag;
+            }
+        }
     }
 
-    ValueT average(SizeT start_idx, SizeT end_idx)
+    ValueT average(SizeT start_row, SizeT end_row, 
+                   SizeT start_col, SizeT end_col)
     {
-        // 2D prefix sum average implemetation
+        ValueT s = pref_sum[end_row+1][end_col+1] -
+                  pref_sum[end_row+1][start_col] -
+                  pref_sum[start_row][end_col+1] +
+                  pref_sum[start_row][start_col];
+
+        SizeT z = pref_finite_cnt[end_row+1][end_col+1] -
+                  pref_finite_cnt[end_row+1][start_col] -
+                  pref_finite_cnt[start_row][end_col+1] +
+                  pref_finite_cnt[start_row][start_col];
+
+        return (z != 0) ? s/z : std::numeric_limits<ValueT>::quiet_NaN();
     }
 
 #else
@@ -346,35 +356,33 @@ protected:
             for (SizeT j = start_col; j <= end_col; ++j) {
                 bool is_finite_flag = std::isfinite(data[i][j]);
                 z += is_finite_flag;
-                s += is_finite_flag * data[i][j];
+                s += (is_finite_flag ? data[i][j] : 0);
             }
         }
 
-        if (z == 0)
-            return std::numeric_limits<ValueT>::quiet_NaN();
-
-        return s / z;
+        return (z != 0) ? s/z : std::numeric_limits<ValueT>::quiet_NaN();
     }
 
 #endif
 
-private:
-
     // window size is 2*half_window+1
-    inline SizeT window_left_bound(SizeT win_center, WinSizeT half_win)
+    inline WinSizeT window_left_bound(SizeT win_center, WinSizeT half_win)
     {
         return (win_center >= SizeT(half_win))
                 ? (win_center - half_win)
                 : 0;
     }
 
-    inline SizeT window_right_bound(SizeT win_center, WinSizeT half_win,
-                                    SizeT data_size)
+    inline WinSizeT window_right_bound(SizeT win_center, WinSizeT half_win,
+                                       SizeT data_size)
     {
         return (win_center + half_win >= data_size)
                 ? data_size - 1
                 : win_center + half_win;
     }
+
+
+private:
 
     inline void perform_single_iteration(SizeT start_idx,
                                          SizeT end_idx) override
@@ -382,18 +390,17 @@ private:
         for (SizeT row = start_idx; row <= end_idx; ++row) {
             for (SizeT col = 0; col < cols; ++col) {
                 ans[row][col] = this->average(
-                    this->window_left_bound(row, half_window[0]),
-                    this->window_right_bound(row, half_window[0], rows),
-                    this->window_left_bound(col, half_window[1]),
-                    this->window_right_bound(col, half_window[1], cols));
+                    window_left_bound(row, half_win_rows),
+                    window_right_bound(row, half_win_rows, rows),
+                    window_left_bound(col, half_win_cols),
+                    window_right_bound(col, half_win_cols, cols));
             }
         }
     }
 
 protected:
-    std::vector<WinSizeT> half_window;
-    std::vector<std::vector<ValueT>> data;
-    std::vector<std::vector<ValueT>> ans;
+    WinSizeT half_win_rows, half_win_cols;
+    std::vector<std::vector<ValueT>> data, ans;
     SizeT rows, cols;
 
     using KZ<ValueT, SizeT, WinSizeT>::task_size;
@@ -423,9 +430,6 @@ protected:
 
     WinSizeT min_window_size;
     ValueT tolerance;
-    std::vector<ValueT> kz_diff;
-    ValueT max_diff;
-    std::vector<ValueT> kz_derivative;
 };
 
 
@@ -464,6 +468,9 @@ public:
     }
 
 private:
+    std::vector<ValueT> kz_diff;
+    ValueT max_diff;
+    std::vector<ValueT> kz_derivative;
 
     using KZ<ValueT, SizeT, WinSizeT>::iterations;
 
@@ -473,9 +480,6 @@ private:
 
     using KZAExtension<ValueT, SizeT, WinSizeT>::min_window_size;
     using KZAExtension<ValueT, SizeT, WinSizeT>::tolerance;
-    using KZAExtension<ValueT, SizeT, WinSizeT>::kz_diff;
-    using KZAExtension<ValueT, SizeT, WinSizeT>::max_diff;
-    using KZAExtension<ValueT, SizeT, WinSizeT>::kz_derivative;
 
 
     void perform_single_iteration(SizeT start_idx, SizeT end_idx) override
@@ -529,18 +533,14 @@ private:
 
         // derivative[t] = 0
         if (std::fabs(kz_derivative[t]) < tolerance) {
-            left_win_size = 
-                this->normalize_left_win(adaptive_win_size, t);
-            right_win_size =
-                this->normalize_right_win(adaptive_win_size, t);
+            left_win_size = normalize_left_win(adaptive_win_size, t);
+            right_win_size = normalize_right_win(adaptive_win_size, t);
         } else if (kz_derivative[t] < 0) {
-            left_win_size = 
-                this->normalize_left_win(adaptive_win_size, t);
-            right_win_size = this->normalize_right_win(half_window, t);
+            left_win_size = normalize_left_win(adaptive_win_size, t);
+            right_win_size = normalize_right_win(half_window, t);
         } else {
-            right_win_size =
-                this->normalize_right_win(adaptive_win_size, t);
-            left_win_size = this->normalize_left_win(half_window, t);
+            right_win_size = normalize_right_win(adaptive_win_size, t);
+            left_win_size = normalize_left_win(half_window, t);
         }
     }
 
@@ -549,6 +549,7 @@ private:
         // calculate d = |y(i+q) - y(i-q)|
         SizeT n = y.size();
         WinSizeT q = half_window;
+        max_diff = 0;
 
         for (SizeT i = 0; i < q; ++i) {
             kz_diff[i] = std::fabs(y[i+q] - y[0]);
@@ -575,89 +576,214 @@ private:
     }
 };
 
-
-/*
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
-ValueT *kz(const ValueT *data, SizeT dim, const SizeT *data_sizes,
-           const WinSizeT *window_sizes, SizeT iterations)
+class KZA2D: public KZ2D<ValueT, SizeT, WinSizeT>,
+             public KZAExtension<ValueT, SizeT, WinSizeT>
 {
-    ValueT *ans = NULL;
-
-    if (dim == 1) {
-        KZ1D<ValueT, SizeT, WinSizeT> kz1d_algo(win_size, iterations);
-
-        std::vector<ValueT> vec(data, data + data_sizes[0]);
-        vec = kz1d_algo(vec);
-        ans = new ValueT[vec.size()];
-        std::copy(vec.cbegin(), vec.cend(), ans);
-    } else if (dim = 2) {
-        KZ2D<ValueT, SizeT, WinSizeT> kz2d_algo(win_size, iterations);
-
-        std::vector<std::vector<ValueT>> vec(
-            std::vector<ValueT>(begin(data[0]), end(data[0])),
-            std::vector<ValueT>(begin(data[1]), end(data[1])));
-        vec = kz1d_algo(vec);
-        ans = new ValueT[vec.size() * vec[0].size()];
-        for (i = 0; i < vec.size(); ++i)
-            std::copy(vec[i].cbegin(), vec[i].cend(), ans + i*vec[0].size());
-    } else {
-        std::cerr << "kz: Too many dimensions\n";
+public:
+    KZA2D(const std::vector<WinSizeT> &window, WinSizeT min_window_size,
+          ValueT tolerance, SizeT iterations)
+            : KZ2D<ValueT, SizeT, WinSizeT>(window, iterations),
+              KZAExtension<ValueT, SizeT, WinSizeT>(min_window_size,
+                                                    tolerance)
+    {
+        // use KZA specific window size: (2*window+1) 
+        this->set_window(window);
     }
 
-    return ans;
-}
+    std::vector<std::vector<ValueT>> operator()(
+                const std::vector<std::vector<ValueT>> &data,
+                const std::vector<std::vector<ValueT>> &kz_result)
+    {
+        rows = data.size();
+        cols = data[0].size();
 
+        kz_dx.resize(rows, std::vector<ValueT> (cols));
+        kz_dy.resize(rows, std::vector<ValueT> (cols));
+        x_derivative.resize(rows, std::vector<ValueT> (cols));
+        y_derivative.resize(rows, std::vector<ValueT> (cols));
 
-template<class ValueT, std::unsigned_integral SizeT,
-         std::unsigned_integral WinSizeT>
-ValueT *kza(const ValueT *data, SizeT dimension, const SizeT *data_sizes,
-            const ValueT *kz_filter_data,
-            const WinSizeT *window_sizes, WinSizeT min_window, 
-            SizeT iterations, ValueT tolerance)
-{
-    ValueT *kz_ans = NULL;
-    ValueT *kza_ans = NULL;
+        calc_kz_difference(kz_result);
+        calc_kz_dirivative();
 
-    if (!data || !data_sizes || !window_sizes) {
-        std::cerr << "kza: Incorrect params\n";
-        return NULL;
+        // call KZ algorithm with overrided perform_single_iteration() method
+        return KZ2D<ValueT, SizeT, WinSizeT>::operator()(data); 
     }
 
-    if (dimension > 1) {
-        std::cerr << "kza: Not yet implemented\n";
-        return NULL;
+    inline void set_window(const std::vector<WinSizeT> &window)
+    {
+        // unlike of KZ algorithm, KZA uses (2*window+1) window 
+        half_win_rows = window[0];           
+        half_win_cols = window.size() > 1 ? window[1] : half_win_rows;           
     }
 
-    SizeT data_size = data_sizes[0];
+private:
+    std::vector<std::vector<ValueT>> kz_dx, kz_dy, x_derivative, y_derivative;
+    ValueT max_dx, max_dy;
 
-    if (!kz_filter_data) {
-        kz_ans = kz<ValueT, SizeT, WinSizeT>(data, dimension, data_sizes, 
-                                             window_sizes, iterations);
-    } else {
-        try {
-            kz_ans = new ValueT[data_size];
-        } 
-        catch (const std::bad_alloc&) {
-            return nullptr; 
+    using KZ<ValueT, SizeT, WinSizeT>::iterations;
+
+    using KZ2D<ValueT, SizeT, WinSizeT>::half_win_rows;
+    using KZ2D<ValueT, SizeT, WinSizeT>::half_win_cols;
+    using KZ2D<ValueT, SizeT, WinSizeT>::data;
+    using KZ2D<ValueT, SizeT, WinSizeT>::ans;
+    using KZ2D<ValueT, SizeT, WinSizeT>::cols;
+    using KZ2D<ValueT, SizeT, WinSizeT>::rows;
+
+    using KZAExtension<ValueT, SizeT, WinSizeT>::min_window_size;
+    using KZAExtension<ValueT, SizeT, WinSizeT>::tolerance;
+
+
+    void perform_single_iteration(SizeT start_idx, SizeT end_idx) override
+    {
+        std::pair<WinSizeT, WinSizeT> rows_win;
+        std::pair<WinSizeT, WinSizeT> cols_win;
+
+        for (SizeT row = start_idx; row <= end_idx; ++row) {
+            for (SizeT col = 0; col < cols; ++col) {
+                rows_win = calc_adaptive_window(row, half_win_rows, rows,
+                                                kz_dy[row][col], max_dy, 
+                                                y_derivative[row][col]);
+                cols_win = calc_adaptive_window(col, half_win_cols, cols,
+                                                kz_dx[row][col], max_dx, 
+                                                x_derivative[row][col]);
+
+                // check if not zero area
+                ans[row][col] = (rows_win.second + rows_win.first +
+                                 cols_win.second + cols_win.first)
+
+                                ? this->average(row - rows_win.first,
+                                                row + rows_win.second,
+                                                col - cols_win.first,
+                                                col + cols_win.second)
+
+                                : data[row][col];
+            }
         }
-        std::copy(kz_filter_data, kz_filter_data + data_size, kz_ans);
     }
 
-#ifdef TIMER
-    Timer timer;
-    timer.start();
-#endif
-    kza_ans = kza1d<ValueT, SizeT, WinSizeT>(data, data_size, kz_ans,
-                                             window_sizes[0], min_window,
-                                             iterations, tolerance);
-#ifdef TIMER
-    timer.stop();
-    timer.print_elapsed("kza(): ");
-#endif
+    inline WinSizeT normalize_left_win(SizeT left_win, SizeT window_center)
+    {
+        SizeT new_size = (left_win < min_window_size)
+                            ? min_window_size
+                            : left_win;
 
-    return kza_ans;
-}
-*/
+        new_size = (new_size > window_center)
+                    ? window_center
+                    : new_size;
+
+        return new_size;
+    }
+
+    inline WinSizeT normalize_right_win(SizeT right_win,
+                                        SizeT window_center,
+                                        SizeT data_size)
+    {
+        SizeT new_size = (right_win < min_window_size)
+                            ? min_window_size
+                            : right_win;
+
+        SizeT max_right_win_size = data_size - window_center - 1;
+        new_size = (new_size > max_right_win_size)
+                    ? max_right_win_size
+                    : new_size;
+
+        return new_size;
+    }
+
+    std::pair<WinSizeT, WinSizeT> calc_adaptive_window(
+                                    SizeT win_center, WinSizeT window,
+                                    SizeT data_size,
+                                    ValueT kz_d, ValueT max_d,
+                                    ValueT derivative)
+    {
+        std::pair<WinSizeT, WinSizeT> adaptive_window;
+        SizeT adaptive = std::floor(window * (1 - kz_d/max_d));
+
+        // derivative = 0
+        if (std::fabs(derivative) < tolerance) {
+            adaptive_window.first = 
+                this->normalize_left_win(adaptive, win_center);
+            adaptive_window.second = 
+                this->normalize_right_win(adaptive, win_center, data_size);
+        } else
+        if (derivative < 0) {
+            adaptive_window.first = 
+                this->normalize_left_win(adaptive, win_center);
+            adaptive_window.second =
+                this->normalize_right_win(window, win_center, data_size);
+        } else {
+            adaptive_window.second = 
+                this->normalize_right_win(adaptive, win_center, data_size);
+            adaptive_window.first = 
+                this->normalize_left_win(window, win_center);
+        }
+
+        return adaptive_window;
+    }
+
+    inline void calc_kz_difference(
+            const std::vector<std::vector<ValueT>> &kz)
+    {
+        WinSizeT q1 = half_win_rows;
+        WinSizeT q2 = half_win_cols;
+
+        max_dx = 0;
+        max_dy = 0;
+
+        // calculate d1 = |Z(x+q2,y) - Z(x-q2,y)|
+        // d2 = |Z(x,y+q1) - Z(x,y-q1)|
+        for (SizeT i = 0; i < rows; ++i) { // y coord
+            for (SizeT j = 0; j < cols; ++j) { // x coord
+                SizeT row_tail = this->window_left_bound(i, q1);
+                SizeT col_tail = this->window_left_bound(j, q2);
+                SizeT row_head = this->window_right_bound(i, q1, rows);
+                SizeT col_head = this->window_right_bound(j, q2, cols);
+
+                kz_dx[i][j] = std::fabs(kz[i][col_head] - kz[i][col_tail]);
+                kz_dy[i][j] = std::fabs(kz[row_head][j] - kz[row_tail][j]);
+
+                max_dx = std::max(max_dx, kz_dx[i][j]);
+                max_dy = std::max(max_dy, kz_dy[i][j]);
+            }
+        }
+    }
+
+    inline void calc_kz_dirivative()
+    {
+        /* d'(t) = d(i+1)-d(i) */
+
+        for (SizeT i = 0; i < rows-1; ++i) {
+            for (SizeT j = 0; j < cols-1; ++j) {
+                x_derivative[i][j] = kz_dx[i][j+1] - kz_dx[i][j];
+                y_derivative[i][j] = kz_dy[i+1][j] - kz_dy[i][j];
+            }
+        }
+        for (SizeT i = 0; i < rows-1; ++i) {
+            x_derivative[i][cols-1] = x_derivative[i][cols-2];
+            y_derivative[i][cols-1] = kz_dy[i+1][cols-1] - kz_dy[i][cols-1];
+        }
+        for (SizeT j = 0; j < cols-1; ++j) {
+            y_derivative[rows-1][j] = y_derivative[rows-2][j];
+            x_derivative[rows-1][j] = kz_dx[rows-1][j+1] - kz_dx[rows-1][j];
+        }
+        /*
+        for (SizeT i = 0; i < rows; ++i) {
+            SizeT j;
+            for (j = 0; j < cols-1; ++j) {
+                x_derivative[i][j] = kz_dx[i][j+1] - kz_dx[i][j];
+            }
+            x_derivative[i][j] = x_derivative[i][j-1];
+        }
+        for (SizeT j = 0; j < cols; ++j) {
+            for (SizeT i = 0; i < rows-1; ++i) {
+                y_derivative[i][j] = kz_dy[i+1][j] - kz_dy[i][j];
+            }
+            y_derivative[rows-1][j] = y_derivative[rows-2][j];
+        }
+        */
+    }
+};
 
 #endif
