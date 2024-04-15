@@ -2,6 +2,11 @@
 Header-only library with implementation of
 Adaptive Kolmogorov-Zurbenko filter for different dimensions.
 
+## KZ and KZA filters
+The Kolmogorov-Zurbenko (KZ) filter is a low-pass filter designed to remove noise from time series and two- or three-dimensional data. It is based on a simple moving average filter and relies on two parameters: the smoothing window size and the number of iterations of the MA filter.
+
+The Kolmogorov-Zurbenko adaptive (KZA) filter is an extension of the KZ filter. It was designed to detect breaks in both one-dimensional and high-dimensional data by adjusting the size of the KZ smoothing window when a break occurs.
+
 [Documentation](
 https://github.com/jakosv/kza/blob/main/doc/kza_project_documentation.pdf)
 
