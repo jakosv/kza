@@ -1,7 +1,7 @@
 /*
 
     Kolmogorov-Zurbenko Adaptive Filter
-    Copyright (C) 2024 Vadim Marchenko
+    Copyright (C) 2024 Vadim V. Marchenko <jakosvadim at gmail dot com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,7 +15,6 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 
 */
 
@@ -34,14 +33,14 @@
 #include <barrier>
 
 
-typedef std::barrier<std::function<void()>> barrier_t;
-
-#ifdef TIMER
+/* -DKZA_TIMER compiler option for time measurement */
+#ifdef KZA_TIMER
 #include <chrono>
-
 class Timer
 {
 public:
+    Timer(const char *name = "time"): name(name) {}
+
     inline void start()
     {
         begin = std::chrono::steady_clock::now();
@@ -55,72 +54,165 @@ public:
     inline long elapsed_time()
     {
         auto diff = end - begin;
-        return std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+        return std::chrono::duration_cast
+                                <std::chrono::milliseconds>(diff).count();
     }
 
-    inline void print_elapsed(const char *msg)
+    inline void print_elapsed()
     {
         long elapsed = this->elapsed_time();
-        std::cout << msg << elapsed << "ms" << std::endl;
+        std::cout << name << ": " << elapsed << "ms" << std::endl;
+    }
+
+    inline void set_name(const char *new_name)
+    {
+        name = new_name;
     }
 
 private:
     std::chrono::steady_clock::time_point begin, end;
+    const char *name;
 };
 #endif
 
 
+/**
+ * \brief Base template class of Kolmogorov-Zurbenko filter with general 
+          parallel algorithm.
+    * \param ValueT type of data values
+    * \param SizeT type of data size
+    * \param WinSizeT type of window size
+*/
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
-class KZ
+class KZGeneric
 {
+    typedef std::barrier<std::function<void()>> barrier_t;
+
 public:
-    KZ(SizeT iterations): iterations(iterations)
-    {
-        threads_cnt = std::thread::hardware_concurrency();
-#ifdef DEBUG
-        printf("Number of cores: %d\n", threads_cnt);
-#endif
-    }
-
-    virtual ~KZ() = default;
-
+    /**
+     * \brief Filter iterations setter. 
+        \param iterations number of filter iterations
+    */
     inline void set_iterations(SizeT iterations)
     {
         this->iterations = iterations;
     }
 
 protected:
+    /**
+     * \param thread Thread identificator.
+     * \param start_idx Starting data index of thread.
+     * \param end_idx Ending data index of thread.
+    */
     struct ThreadData {
         std::thread thread;
         SizeT start_idx, end_idx;
     };
 
+    /** \brief Iterations number */
     SizeT iterations;
+    /** \brief Data size to be processed */
     SizeT task_size;
+    /** \brief Number of CPU cores available for multithreading */
     SizeT threads_cnt;
+#ifdef KZA_TIMER
+    Timer timer;
+#endif
 
+
+    /**
+        \param iterations number of filter iterations
+    */
+    KZGeneric(SizeT iterations): iterations(iterations)
+    {
+        threads_cnt = std::thread::hardware_concurrency();
+#ifdef KZA_DEBUG
+        std::cout << "Number of cores: " << threads_cnt << std::endl;
+#endif
+    }
+
+    virtual ~KZGeneric() = default;
+
+    /**
+     * \brief Single iteration step of the filter algorithm for each thred.
+     * This method must be overridden by derived classes
+         * \param start_idx Starting data index.
+         * \param end_idx Ending (inclusive) data index.
+    */
     virtual void perform_single_iteration(SizeT start_idx, SizeT end_idx) = 0;
 
+    /**
+     * \brief This method runs iterations of the filter algorithm. 
+         At each iteration, parallel threads call 
+         perform_single_iteration() on their piece of data. 
+         The threads are synchronized using a barrier that calls 
+         the on_iteration_complete() lambda function to synchronize the
+         result of each thread.
+
+         * \param on_iteration_complete Lambda function for threads results
+                  synchronization.
+    */
     void perform_iterations(std::function<void()> on_iteration_complete)
     {
         barrier_t sync_iteration(threads_cnt, on_iteration_complete);
         std::vector<ThreadData> th(threads_cnt);
 
-#ifdef TIMER
-    Timer timer;
+#ifdef KZA_TIMER
     timer.start();
 #endif
         this->start_threads(th, sync_iteration);
 
         for (auto &thread_data : th)
             thread_data.thread.join();
-#ifdef TIMER
+
+#ifdef KZA_TIMER
     timer.stop();
-    timer.print_elapsed("time: ");
+    timer.print_elapsed();
 #endif
     }
 
+    /**
+     * \brief Calculates the left bound of a window with a given 
+                center location. If the left bound of the window is 
+                less than 0, then it is cut to 0. Whole window size 
+                is 2*half_window+1.
+         \param win_center Window center index.
+         \param half_win Half-window size.
+    */
+    inline WinSizeT window_left_bound(SizeT win_center, WinSizeT half_win)
+    {
+        return (win_center >= half_win)
+                ? (win_center - half_win)
+                : 0;
+    }
+
+    /**
+     * \brief Calculates the right bound of a window with a given 
+                center location. If the right bound of the window 
+                goes beyond the boundaries of the data array, then the 
+                right border is trimmed to the maximum index.
+                Whole window size is 2*half_window+1.
+
+         \param win_center Window center index.
+         \param half_win Half-window size.
+         \param data_size Data size.
+    */
+    inline WinSizeT window_right_bound(SizeT win_center, WinSizeT half_win,
+                                       SizeT data_size)
+    {
+        return (win_center + half_win >= data_size)
+                ? data_size - 1
+                : win_center + half_win;
+    }
+
+private:
+    /**
+     * \brief Thread main function.
+         * \param t_data Thread data.
+         * \param sync_iteration barrier to synchronize threads after each 
+                iteration.
+    */
     void worker(ThreadData &t_data, barrier_t &sync_iteration)
     {
         for (SizeT i = 0; i < iterations - 1; ++i) {
@@ -133,6 +225,13 @@ protected:
         this->perform_single_iteration(t_data.start_idx, t_data.end_idx);
     }
 
+    /**
+     * \brief This function distributes the task between threads and 
+            starts them.
+         * \param th Threads array.
+         * \param sync_iteration barrier to synchronize threads after each 
+                iteration.
+    */
     void start_threads(std::vector<ThreadData> &th, barrier_t &sync_iteration)
     {
         SizeT thread_task_size = (task_size + threads_cnt-1) / threads_cnt;
@@ -146,24 +245,39 @@ protected:
 
             start_idx = t_data.end_idx;
 
-            t_data.thread = std::thread(&KZ::worker, this, std::ref(t_data),
+            t_data.thread = std::thread(&KZGeneric::worker, this, 
+                                        std::ref(t_data),
                                         std::ref(sync_iteration));
         }
     }
 };
 
 
+/**
+ * \brief Kolmogorov-Zurbenko 1D filter.
+*/
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
-class KZ1D: public KZ<ValueT, SizeT, WinSizeT>
+class KZ1D: public KZGeneric<ValueT, SizeT, WinSizeT>
 {
 public:
+    /**
+     * \param window_size Window size.
+     * \param iterations Number of filter iterations. 
+    */
     KZ1D(WinSizeT window_size, SizeT iterations) 
-        : KZ<ValueT, SizeT, WinSizeT>(iterations) 
+        : KZGeneric<ValueT, SizeT, WinSizeT>(iterations) 
     {
-        half_window = window_size>>1; // window half (window is 2*m+1)
+        half_window = window_size >> 1; // window half (window is 2*m+1)
+#ifdef KZA_TIMER
+        KZGeneric<ValueT, SizeT, WinSizeT>::timer.set_name("kz1d");
+#endif
     }
 
+    /**
+     * \param vec Data to be processed by filter.
+     * \return Result vector.
+    */
     std::vector<ValueT> operator()(const std::vector<ValueT> &vec)
     {
         task_size = vec.size();
@@ -191,7 +305,12 @@ public:
         return std::move(ans);
     }
 
-    inline void set_window(WinSizeT window)
+    /**
+     * \brief Filter window size setter. Adaptive filter algorithm override
+            this function since it uses different half-window sizes.
+         \param window Window size.
+    */
+    inline virtual void set_window(WinSizeT window)
     {
         half_window = window >> 1;
     }
@@ -199,9 +318,16 @@ public:
 protected:
 
 #ifdef PREFIX_SUM
+    /** \brief -DPREFIX_SUM preprocessor option required. */
     std::vector<ValueT> pref_sum;
     std::vector<SizeT> pref_finite_cnt;
 
+    /**
+     * \brief -DPREFIX_SUM preprocessor option required.
+            Calculate data prefix sums. The function also 
+            calculates the number of finite elements on data array.
+         \param data Initial data array.
+    */
     void update_prefix_sum(const std::vector<ValueT> &data)
     {
         pref_sum[0] = 0;
@@ -215,6 +341,13 @@ protected:
         }
     }
 
+    /**
+     * \brief -DPREFIX_SUM preprocessor option required.
+            The method calculates the average value on the interval in
+            data array usign prefix sum.
+         \param start_idx Index of the first element.
+         \param end_idx Index of the last element (inclusive).
+    */
     ValueT average(SizeT start_idx, SizeT end_idx)
     {
         /* (window sum) = (sum containig window) - (sum before window) */
@@ -227,6 +360,12 @@ protected:
 
 #else
 
+    /**
+     * \brief The method calculates the average value on the interval in
+            data array.
+         \param start_idx Index of the first element.
+         \param end_idx Index of the last element (inclusive).
+    */
     ValueT average(SizeT start_idx, SizeT end_idx)
     {
         SizeT z = 0;
@@ -246,50 +385,53 @@ protected:
 
 private:
 
-    // window length is 2*half_window+1
-    inline SizeT window_left_bound(SizeT win_center)
-    {
-        return (win_center >= SizeT(half_window))
-                ? (win_center - half_window)
-                : 0;
-    }
-
-    inline SizeT window_right_bound(SizeT win_center)
-    {
-        return (size_t(win_center + half_window) >= data.size())
-                ? data.size() - 1
-                : win_center + half_window;
-    }
-
     inline void perform_single_iteration(SizeT start_idx, 
                                          SizeT end_idx) override
     {
         for (SizeT time = start_idx; time <= end_idx; ++time)
-            ans[time] = this->average(this->window_left_bound(time),
-                                      this->window_right_bound(time));
+            ans[time] = this->average(
+                this->window_left_bound(time, half_window),
+                this->window_right_bound(time, half_window, data.size()));
     }
 
 protected:
+    /** \brief Half window size. Whole window size is 2*half_window+1. */
     WinSizeT half_window;
+    /** \brief Data array. */
     std::vector<ValueT> data;
+    /** \brief Algorithm result after iteration. */
     std::vector<ValueT> ans;
 
-    using KZ<ValueT, SizeT, WinSizeT>::task_size;
-    using KZ<ValueT, SizeT, WinSizeT>::iterations;
-    using KZ<ValueT, SizeT, WinSizeT>::threads_cnt;
+    using KZGeneric<ValueT, SizeT, WinSizeT>::task_size;
+    using KZGeneric<ValueT, SizeT, WinSizeT>::iterations;
+    using KZGeneric<ValueT, SizeT, WinSizeT>::threads_cnt;
 };
 
+/**
+ * \brief Kolmogorov-Zurbenko 2D filter.
+*/
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
-class KZ2D: public KZ<ValueT, SizeT, WinSizeT>
+class KZ2D: public KZGeneric<ValueT, SizeT, WinSizeT>
 {
 public:
+    /**
+     * \param window_sizes Window sizes in row and column spaces.
+     * \param iterations Number of filter iterations. 
+    */
     KZ2D(const std::vector<WinSizeT> window_sizes, SizeT iterations) 
-        : KZ<ValueT, SizeT, WinSizeT>(iterations)
+        : KZGeneric<ValueT, SizeT, WinSizeT>(iterations)
     {
         this->set_window(window_sizes);
+#ifdef KZA_TIMER
+        KZGeneric<ValueT, SizeT, WinSizeT>::timer.set_name("kz2d");
+#endif
     }
 
+    /**
+     * \param vec 2D vector of initial data to be processed by filter.
+     * \return Result 2D vector.
+    */
     std::vector<std::vector<ValueT>> operator()(
             const std::vector<std::vector<ValueT>> &vec)
     {
@@ -320,7 +462,7 @@ public:
         return std::move(ans);
     }
 
-    inline void set_window(const std::vector<WinSizeT> &window)
+    inline virtual void set_window(const std::vector<WinSizeT> &window)
     {
         half_win_rows = window[0] >> 1;
         half_win_cols = window.size() > 1 ? window[1] >> 1 : half_win_rows;
@@ -329,9 +471,16 @@ public:
 protected:
 
 #ifdef PREFIX_SUM
+    /** \brief -DPREFIX_SUM preprocessor option required. */
     std::vector<std::vector<ValueT>> pref_sum;
     std::vector<std::vector<SizeT>> pref_finite_cnt;
 
+    /**
+     * \brief -DPREFIX_SUM preprocessor option required.
+            Calculate 2D data prefix sums. The function also 
+            calculates the number of finite elements on data array.
+         \param data 2D data array.
+    */
     void update_prefix_sum(const std::vector<std::vector<ValueT>> &data)
     {
         bool is_finite_flag;
@@ -350,6 +499,15 @@ protected:
         }
     }
 
+    /**
+     * \brief -DPREFIX_SUM preprocessor option required.
+         The method calculates the average in a rectangle with given 
+         corners coords using 2D prefix sum.
+         \param start_row Upper corner row number.
+         \param end_row Lower corner row number (inclusive).
+         \param start_col Upper corner column number.
+         \param end_col Lower corner column number (inclusive).
+    */
     ValueT average(SizeT start_row, SizeT end_row, 
                    SizeT start_col, SizeT end_col)
     {
@@ -368,6 +526,14 @@ protected:
 
 #else
 
+    /**
+     * \brief The method calculates the average in a rectangle with given 
+             cornes coords.
+         \param start_row Upper corner row number.
+         \param end_row Lower corner row number (inclusive).
+         \param start_col Upper corner column number.
+         \param end_col Lower corner column number (inclusive).
+    */
     ValueT average(SizeT start_row, SizeT end_row, 
                    SizeT start_col, SizeT end_col)
     {
@@ -387,23 +553,6 @@ protected:
 
 #endif
 
-    // window size is 2*half_window+1
-    inline WinSizeT window_left_bound(SizeT win_center, WinSizeT half_win)
-    {
-        return (win_center >= SizeT(half_win))
-                ? (win_center - half_win)
-                : 0;
-    }
-
-    inline WinSizeT window_right_bound(SizeT win_center, WinSizeT half_win,
-                                       SizeT data_size)
-    {
-        return (win_center + half_win >= data_size)
-                ? data_size - 1
-                : win_center + half_win;
-    }
-
-
 private:
 
     inline void perform_single_iteration(SizeT start_idx,
@@ -412,40 +561,65 @@ private:
         for (SizeT row = start_idx; row <= end_idx; ++row) {
             for (SizeT col = 0; col < cols; ++col) {
                 ans[row][col] = this->average(
-                    window_left_bound(row, half_win_rows),
-                    window_right_bound(row, half_win_rows, rows),
-                    window_left_bound(col, half_win_cols),
-                    window_right_bound(col, half_win_cols, cols));
+                    this->window_left_bound(row, half_win_rows),
+                    this->window_right_bound(row, half_win_rows, rows),
+                    this->window_left_bound(col, half_win_cols),
+                    this->window_right_bound(col, half_win_cols, cols));
             }
         }
     }
 
 protected:
-    WinSizeT half_win_rows, half_win_cols;
+    /** \brief Half window size in the row space. */
+    WinSizeT half_win_rows;
+
+    /** \brief Half window size in the column space. */
+    WinSizeT half_win_cols;
+
     std::vector<std::vector<ValueT>> data, ans;
     SizeT rows, cols;
 
-    using KZ<ValueT, SizeT, WinSizeT>::task_size;
-    using KZ<ValueT, SizeT, WinSizeT>::iterations;
-    using KZ<ValueT, SizeT, WinSizeT>::threads_cnt;
+    using KZGeneric<ValueT, SizeT, WinSizeT>::task_size;
+    using KZGeneric<ValueT, SizeT, WinSizeT>::iterations;
+    using KZGeneric<ValueT, SizeT, WinSizeT>::threads_cnt;
 };
 
 
+/**
+ * \brief Kolmogorov-Zurbenko filter adaptive extension.
+*/
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
 class KZAExtension
 {
 public:
+    /**
+     * \brief Adaptive filter minimal window setter. 
+     * \param min_window The lower bound of the window size is 
+        used during the calculation of the adaptive window size.
+    */
     inline void set_min_window(WinSizeT min_window)
     {
         min_window_size = min_window; 
     }
 
+    /**
+     * \brief Adaptive filter tolerance setter. 
+     * \param tol Accuracy when comparing the derivative to zero 
+                        when calculating the adaptive window.
+    */
     inline void set_tolerance(ValueT tol)
     {
         tolerance = tol; 
     }
 
+    /**
+     * \brief Calculates adaptive window size.
+     * \param window Initial window size.
+     * \param kz_d KZ filter result difference value.
+     * \param max_d Maximum if KZ filter result difference values.
+     * \returns Adaptive window size.
+    */
     inline SizeT adaptive_window(WinSizeT window, ValueT kz_d, ValueT max_d)
     {
         return (std::fabs(max_d) > 0) 
@@ -454,20 +628,85 @@ public:
     }
 
 protected:
+    WinSizeT min_window_size;
+    ValueT tolerance;
+
+    /**
+     * \param min_window_size The lower bound of the window size is 
+        used during the calculation of the adaptive window size.
+     * \param tolerance Accuracy when comparing the derivative to zero 
+            when calculating the adaptive window.
+    */
     KZAExtension(WinSizeT min_window_size, ValueT tolerance)
         : min_window_size(min_window_size), tolerance(tolerance) {}
 
-    WinSizeT min_window_size;
-    ValueT tolerance;
+    /**
+     * \brief Normalize left window size. If the window is smaller than 
+            the minimum window length, it extends it to this minimum. 
+            If the window goes beyond the boundaries of the array, 
+            it cuts it off.
+     * \param left_win Initial left window size.
+     * \param window_center Index of window center.
+     * \return New left window size.
+    */
+    inline WinSizeT normalize_left_win(SizeT left_win, SizeT window_center)
+    {
+        SizeT new_size = (left_win < min_window_size)
+                            ? min_window_size
+                            : left_win;
+
+        new_size = (new_size > window_center)
+                    ? window_center
+                    : new_size;
+
+        return new_size;
+    }
+
+    /**
+     * \brief Normalize left window size. If the window is smaller than 
+            the minimum window length, it extends it to this minimum. 
+            If the window goes beyond the boundaries of the array, 
+            it cuts it off.
+     * \param right_win Initial right window size.
+     * \param window_center Index of window center.
+     * \param data_size Data array size.
+     * \return New right window size.
+    */
+    inline WinSizeT normalize_right_win(SizeT right_win,
+                                        SizeT window_center,
+                                        SizeT data_size)
+    {
+        SizeT new_size = (right_win < min_window_size)
+                            ? min_window_size
+                            : right_win;
+
+        SizeT max_right_win_size = data_size - window_center - 1;
+        new_size = (new_size > max_right_win_size)
+                    ? max_right_win_size
+                    : new_size;
+
+        return new_size;
+    }
 };
 
 
+/**
+ * \brief Kolmogorov-Zurbenko 1D adaptive filter.
+*/
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
 class KZA1D: public KZ1D<ValueT, SizeT, WinSizeT>,
              public KZAExtension<ValueT, SizeT, WinSizeT>
 {
 public:
+    /**
+     * \param window_size Window size.
+     * \param min_window_size The lower bound of the window size is 
+        used during the calculation of the adaptive window size.
+     * \param tolerance Accuracy when comparing the derivative to zero 
+            when calculating the adaptive window.
+     * \param iterations Number of filter iterations. 
+    */
     KZA1D(WinSizeT window_size, WinSizeT min_window_size,
           ValueT tolerance, SizeT iterations)
             : KZ1D<ValueT, SizeT, WinSizeT>(window_size, iterations),
@@ -476,8 +715,17 @@ public:
     {
         // unlike of KZ algorithm, KZA uses (2*window_size+1) window 
         half_window = window_size;           
+#ifdef KZA_TIMER
+        KZGeneric<ValueT, SizeT, WinSizeT>::timer.set_name("kza1d");
+#endif
     }
 
+    /**
+     * \param data Initial data to be processed by filter.
+     * \param kz_result The result of processing data with a 
+                KZ1D filter.
+     * \return Result vector.
+    */
     std::vector<ValueT> operator()(const std::vector<ValueT> &data,
                                    const std::vector<ValueT> &kz_result)
     {
@@ -491,17 +739,20 @@ public:
         return KZ1D<ValueT, SizeT, WinSizeT>::operator()(data); 
     }
 
-    inline void set_window(WinSizeT window)
+    inline void set_window(WinSizeT window) override
     {
         half_window = window;           
     }
 
 private:
+    /** \brief Array of KZ1D filter result differeces |y(i+q) - y(i-q)| */
     std::vector<ValueT> kz_diff;
     ValueT max_diff;
+
+    /** \brief Array of KZ1D filter result discrete derrivatives */
     std::vector<ValueT> kz_derivative;
 
-    using KZ<ValueT, SizeT, WinSizeT>::iterations;
+    using KZGeneric<ValueT, SizeT, WinSizeT>::iterations;
 
     using KZ1D<ValueT, SizeT, WinSizeT>::half_window;
     using KZ1D<ValueT, SizeT, WinSizeT>::data;
@@ -524,57 +775,46 @@ private:
         }
     }
 
-    inline WinSizeT normalize_left_win(SizeT left_win, SizeT window_center)
-    {
-        SizeT new_size = (left_win < min_window_size)
-                            ? min_window_size
-                            : left_win;
-
-        new_size = (new_size > window_center)
-                    ? window_center
-                    : new_size;
-
-        return new_size;
-    }
-
-    inline WinSizeT normalize_right_win(SizeT right_win,
-                                        SizeT window_center)
-    {
-        SizeT new_size = (right_win < min_window_size)
-                            ? min_window_size
-                            : right_win;
-
-        SizeT max_right_win_size = data.size() - window_center - 1;
-        new_size = (new_size > max_right_win_size)
-                    ? max_right_win_size
-                    : new_size;
-
-        return new_size;
-    }
-
-    inline void calc_adaptive_half_windows(WinSizeT &left_win_size, 
-                                           WinSizeT &right_win_size, 
+    /**
+     * \brief Calculates the adaptive size of the window halves.
+     * \param left_half_win A reference to the variable of the 
+     *                      left half window.
+     * \param right_half_win A reference to the variable of the 
+     *                       right half window.
+     * \param t Index of window center. Window size is 
+                left_half_win + right_half_win + 1.
+    */
+    inline void calc_adaptive_half_windows(WinSizeT &left_half_win, 
+                                           WinSizeT &right_half_win, 
                                            SizeT t)  
     {
+        SizeT data_size = data.size();
         SizeT adaptive_size = this->adaptive_window(half_window, 
                                                     kz_diff[t], max_diff);
 
         // derivative[t] = 0
         if (std::fabs(kz_derivative[t]) < tolerance) {
-            left_win_size = normalize_left_win(adaptive_size, t);
-            right_win_size = normalize_right_win(adaptive_size, t);
+            left_half_win = this->normalize_left_win(adaptive_size, t);
+            right_half_win = 
+                this->normalize_right_win(adaptive_size, t, data_size);
         } else if (kz_derivative[t] < 0) {
-            left_win_size = normalize_left_win(adaptive_size, t);
-            right_win_size = normalize_right_win(half_window, t);
+            left_half_win = this->normalize_left_win(adaptive_size, t);
+            right_half_win = 
+                this->normalize_right_win(half_window, t, data_size);
         } else {
-            right_win_size = normalize_right_win(adaptive_size, t);
-            left_win_size = normalize_left_win(half_window, t);
+            right_half_win = 
+                this->normalize_right_win(adaptive_size, t, data_size);
+            left_half_win = this->normalize_left_win(half_window, t);
         }
     }
 
+    /** 
+     * \brief Calculates differences of KZ1D filter result:
+                 |y[i+q] - y[i-q]| when q is a half window size.
+        \param y KZ1D filter result array.
+    */
     inline void calc_kz_difference(const std::vector<ValueT> &y)
     {
-        // calculate d = |y(i+q) - y(i-q)|
         SizeT n = y.size();
         WinSizeT q = half_window;
         max_diff = 0;
@@ -593,10 +833,16 @@ private:
         }
     }
 
+    /** 
+     * \brief Calculates discrete derivative of KZ1D filter result:
+              d'[t] = d[t+1] - d[i].
+    */
     inline void calc_kz_dirivative()
     {
-        /* d'(t) = d(i+1)-d(i) */
-        SizeT n = kz_derivative.size();
+        SizeT n = kz_diff.size();
+
+        if (n < 2)
+            return;
 
         for (SizeT i = 0; i < n-1; i++)
             kz_derivative[i] = kz_diff[i+1] - kz_diff[i];
@@ -604,12 +850,23 @@ private:
     }
 };
 
+/**
+ * \brief Kolmogorov-Zurbenko 2D adaptive filter.
+*/
 template<class ValueT, std::unsigned_integral SizeT,
          std::unsigned_integral WinSizeT>
 class KZA2D: public KZ2D<ValueT, SizeT, WinSizeT>,
              public KZAExtension<ValueT, SizeT, WinSizeT>
 {
 public:
+    /**
+     * \param window Window size.
+     * \param min_window_size The lower bound of the window size is 
+        used during the calculation of the adaptive window size.
+     * \param tolerance Accuracy when comparing the derivative to zero 
+            when calculating the adaptive window.
+     * \param iterations Number of filter iterations. 
+    */
     KZA2D(const std::vector<WinSizeT> &window, WinSizeT min_window_size,
           ValueT tolerance, SizeT iterations)
             : KZ2D<ValueT, SizeT, WinSizeT>(window, iterations),
@@ -618,8 +875,17 @@ public:
     {
         // use KZA specific window size: (2*window+1) 
         this->set_window(window);
+#ifdef KZA_TIMER
+        KZGeneric<ValueT, SizeT, WinSizeT>::timer.set_name("kza2d");
+#endif
     }
 
+    /**
+     * \param data Initial 2D data array to be processed by filter.
+     * \param kz_result The result of processing data with a 
+                        KZ2D filter.
+     * \return Result 2D vector.
+    */
     std::vector<std::vector<ValueT>> operator()(
                 const std::vector<std::vector<ValueT>> &data,
                 const std::vector<std::vector<ValueT>> &kz_result)
@@ -639,7 +905,7 @@ public:
         return KZ2D<ValueT, SizeT, WinSizeT>::operator()(data); 
     }
 
-    inline void set_window(const std::vector<WinSizeT> &window)
+    inline void set_window(const std::vector<WinSizeT> &window) override
     {
         // unlike of KZ algorithm, KZA uses (2*window+1) window 
         half_win_rows = window[0];           
@@ -647,10 +913,25 @@ public:
     }
 
 private:
-    std::vector<std::vector<ValueT>> kz_dx, kz_dy, x_derivative, y_derivative;
+    /** \brief Array of KZ2D filter result differeces in column space */
+    std::vector<std::vector<ValueT>> kz_dx;
+
+    /** \brief Array of KZ2D filter result differeces in row space */
+    std::vector<std::vector<ValueT>> kz_dy;
+
     ValueT max_dx, max_dy;
 
-    using KZ<ValueT, SizeT, WinSizeT>::iterations;
+    /** 
+     \brief Array of KZ1D filter result discrete derrivatives in column space 
+    */
+    std::vector<std::vector<ValueT>> x_derivative;
+
+    /** 
+     \brief Array of KZ1D filter result discrete derrivatives in row space 
+    */
+    std::vector<std::vector<ValueT>> y_derivative;
+
+    using KZGeneric<ValueT, SizeT, WinSizeT>::iterations;
 
     using KZ2D<ValueT, SizeT, WinSizeT>::half_win_rows;
     using KZ2D<ValueT, SizeT, WinSizeT>::half_win_cols;
@@ -670,12 +951,16 @@ private:
 
         for (SizeT row = start_idx; row <= end_idx; ++row) {
             for (SizeT col = 0; col < cols; ++col) {
-                rows_win = adaptive_half_windows(row, half_win_rows, rows,
-                                                 kz_dy[row][col], max_dy, 
-                                                 y_derivative[row][col]);
-                cols_win = adaptive_half_windows(col, half_win_cols, cols,
-                                                 kz_dx[row][col], max_dx, 
-                                                 x_derivative[row][col]);
+                rows_win = this->adaptive_window_halves(
+                    row, half_win_rows, rows,
+                    kz_dy[row][col], max_dy, 
+                    y_derivative[row][col]
+                );
+                cols_win = this->adaptive_window_halves(
+                    col, half_win_cols, cols,
+                    kz_dx[row][col], max_dx, 
+                    x_derivative[row][col]
+                );
 
                 // check that area is not zero
                 ans[row][col] = (rows_win.second + rows_win.first +
@@ -691,36 +976,19 @@ private:
         }
     }
 
-    inline WinSizeT normalize_left_win(SizeT left_win, SizeT window_center)
-    {
-        SizeT new_size = (left_win < min_window_size)
-                            ? min_window_size
-                            : left_win;
-
-        new_size = (new_size > window_center)
-                    ? window_center
-                    : new_size;
-
-        return new_size;
-    }
-
-    inline WinSizeT normalize_right_win(SizeT right_win,
-                                        SizeT window_center,
-                                        SizeT data_size)
-    {
-        SizeT new_size = (right_win < min_window_size)
-                            ? min_window_size
-                            : right_win;
-
-        SizeT max_right_win_size = data_size - window_center - 1;
-        new_size = (new_size > max_right_win_size)
-                    ? max_right_win_size
-                    : new_size;
-
-        return new_size;
-    }
-
-    std::pair<WinSizeT, WinSizeT> adaptive_half_windows(
+    /**
+     * \brief Calculates the adaptive size of the window halves in
+     *          column or row space.
+     * \param win_center Window center coord.
+     * \param window Window size.
+     * \param data_size Data size in row or column space.
+     * \param kz_d KZ2D result difference in window_center coord.
+     * \param max_d Maximum of KZ2D result differences.
+     * \param derivative Discrete derivative if KZ2D result 
+     *                  in window_center coord.
+     * \returns Pair of adaptive window left and right halves.
+    */
+    std::pair<WinSizeT, WinSizeT> adaptive_window_halves(
                                     SizeT win_center, WinSizeT window,
                                     SizeT data_size,
                                     ValueT kz_d, ValueT max_d,
@@ -731,23 +999,30 @@ private:
 
         // derivative = 0
         if (std::fabs(derivative) < tolerance) {
-            adaptive_win.first = normalize_left_win(adaptive, win_center);
+            adaptive_win.first = 
+                this->normalize_left_win(adaptive, win_center);
             adaptive_win.second = 
-                normalize_right_win(adaptive, win_center, data_size);
+                this->normalize_right_win(adaptive, win_center, data_size);
         } else
         if (derivative < 0) {
-            adaptive_win.first = normalize_left_win(adaptive, win_center);
+            adaptive_win.first = 
+                this->normalize_left_win(adaptive, win_center);
             adaptive_win.second =
-                normalize_right_win(window, win_center, data_size);
+                this->normalize_right_win(window, win_center, data_size);
         } else {
             adaptive_win.second = 
-                normalize_right_win(adaptive, win_center, data_size);
-            adaptive_win.first = normalize_left_win(window, win_center);
+                this->normalize_right_win(adaptive, win_center, data_size);
+            adaptive_win.first = 
+                this->normalize_left_win(window, win_center);
         }
 
         return adaptive_win;
     }
 
+    /** 
+     * \brief Calculates |Z(x+q2,y) - Z(x-q2,y)| and |Z(x,y+q1) - Z(x,y-q1)|
+        \param kz 2D array of KZ2D filter result.
+    */
     inline void calc_kz_difference(
             const std::vector<std::vector<ValueT>> &kz)
     {
@@ -757,8 +1032,6 @@ private:
         max_dx = 0;
         max_dy = 0;
 
-        // calculate d1 = |Z(x+q2,y) - Z(x-q2,y)|
-        // d2 = |Z(x,y+q1) - Z(x,y-q1)|
         for (SizeT i = 0; i < rows; ++i) { // y coord
             for (SizeT j = 0; j < cols; ++j) { // x coord
                 SizeT row_tail = this->window_left_bound(i, q1);
@@ -775,6 +1048,10 @@ private:
         }
     }
 
+    /** 
+     * \brief Calculates discrete derivative of KZ2D filter result 
+                in row and columns spaces  
+    */
     inline void calc_kz_dirivative()
     {
         /* d'(t) = d(i+1)-d(i) */
@@ -793,21 +1070,6 @@ private:
             y_derivative[rows-1][j] = y_derivative[rows-2][j];
             x_derivative[rows-1][j] = kz_dx[rows-1][j+1] - kz_dx[rows-1][j];
         }
-        /*
-        for (SizeT i = 0; i < rows; ++i) {
-            SizeT j;
-            for (j = 0; j < cols-1; ++j) {
-                x_derivative[i][j] = kz_dx[i][j+1] - kz_dx[i][j];
-            }
-            x_derivative[i][j] = x_derivative[i][j-1];
-        }
-        for (SizeT j = 0; j < cols; ++j) {
-            for (SizeT i = 0; i < rows-1; ++i) {
-                y_derivative[i][j] = kz_dy[i+1][j] - kz_dy[i][j];
-            }
-            y_derivative[rows-1][j] = y_derivative[rows-2][j];
-        }
-        */
     }
 };
 
