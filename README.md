@@ -6,7 +6,7 @@ Documentation:
 ```
 cd doc
 doxygen doxygen_config
-open doc/html/index.html
+open html/index.html
 ```
 
 Theory: doc/kza_project_documentation.pdf
