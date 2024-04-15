@@ -71,9 +71,11 @@ $ python run_tests.py
 ```
 
 ## Authors:
-[Vadim Marchenko](https://github.com/jakosv) - worked on kza.hpp
+[Vadim Marchenko](https://github.com/jakosv) 
+<jakosvadim at gmail dot com> - worked on kza.hpp
 
-[Polina Zolotareva](https://github.com/polin-drom) / [Nataliia Shalimova](https://github.com/LostOwlNata) - 
+[Polina Zolotareva](https://github.com/polin-drom) / 
+[Nataliia Shalimova](https://github.com/LostOwlNata) - 
 worked on doc/kza_project_documentation.pdf
 
 [Kirill Avdeichuk](https://github.com/DotaSlaer) - worked on tests
