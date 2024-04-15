@@ -2,12 +2,7 @@
 Header-only library with implementation of
 Adaptive Kolmogorov-Zurbenko filter for different dimensions.
 
-Documentation:
-```
-cd doc
-doxygen doxygen_config
-open html/index.html
-```
+[Documentation](https://jakosv.github.io/kza/html/md_README.html)
 
 Theory: doc/kza_project_documentation.pdf
 
