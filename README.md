@@ -9,7 +9,7 @@ The Kolmogorov-Zurbenko adaptive (KZA) filter is an extension of the KZ filter. 
 
 [Documentation](https://jakosv.github.io/kza/html/md_README.html)
 
-Theory: doc/kza_project_documentation.pdf
+Theory: doc/kza_project.pdf
 
 See also R [kza package](
 https://cran.r-project.org/web/packages/kza/index.html)
@@ -76,7 +76,7 @@ $ python run_tests.py
 
 [Polina Zolotareva](https://github.com/polin-drom) / 
 [Nataliia Shalimova](https://github.com/LostOwlNata) - 
-worked on doc/kza_project_documentation.pdf
+worked on doc/kza_project.pdf
 
 [Kirill Avdeichuk](https://github.com/DotaSlaer) - worked on tests
 
