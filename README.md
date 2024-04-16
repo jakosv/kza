@@ -3,13 +3,19 @@ Header-only library with implementation of
 Adaptive Kolmogorov-Zurbenko filter for different dimensions.
 
 ## KZ and KZA filters
-The Kolmogorov-Zurbenko (KZ) filter is a low-pass filter designed to remove noise from time series and two- or three-dimensional data. It is based on a simple moving average filter and relies on two parameters: the smoothing window size and the number of iterations of the MA filter.
+The Kolmogorov-Zurbenko (KZ) filter is a low-pass filter designed to 
+remove noise from time series and two- or three-dimensional data. It 
+is based on a simple moving average filter and relies on two parameters: 
+the smoothing window size and the number of iterations of the MA filter.
 
-The Kolmogorov-Zurbenko adaptive (KZA) filter is an extension of the KZ filter. It was designed to detect breaks in both one-dimensional and high-dimensional data by adjusting the size of the KZ smoothing window when a break occurs.
+The Kolmogorov-Zurbenko adaptive (KZA) filter is an extension of the KZ 
+filter. It was designed to detect breaks in both one-dimensional and 
+high-dimensional data by adjusting the size of the KZ smoothing window 
+when a break occurs.
 
 [Documentation](https://jakosv.github.io/kza/html/md_README.html)
 
-Theory: docs/kza_project.pdf
+[KZA theory](docs/kza_theory.pdf)
 
 See also R [kza package](
 https://cran.r-project.org/web/packages/kza/index.html)
@@ -72,13 +78,14 @@ $ python run_tests.py
 
 ## Authors:
 [Vadim Marchenko](https://github.com/jakosv) 
-<jakosvadim at gmail dot com> - worked on kza.hpp
+\<jakosvadim at gmail dot com\> - worked on kza.hpp and documentation
 
 [Polina Zolotareva](https://github.com/polin-drom) / 
 [Nataliia Shalimova](https://github.com/LostOwlNata) - 
-worked on docs/kza_project.pdf
+worked on KZA theory (docs/kza_theory.pdf)
 
 [Kirill Avdeichuk](https://github.com/DotaSlaer) - worked on tests
 
-Scientific supervisor: Denis Vasilyevich Parfenov (promasterden@yandex.ru)
+Scientific supervisor: 
+[Denis Vasilyevich Parfenov](mailto:promasterden@yandex.ru)
 
