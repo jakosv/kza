@@ -25,8 +25,7 @@ def kz1d(x, m, k = 3):
     ans = res[:len(x)]
     return ans
 
-def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
-        impute_tails = False):
+def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5):
     xp = x
     if y != None:
         yp = y
@@ -34,10 +33,28 @@ def kza1d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5,
         yp = kz1d(x,m)
     if min_size == None:
         min_size = round(0.05*m)
-    dim = 1
-    size = len(x)
     window = m
     res = libKZ_py.kza1d(xp, yp, window, k, min_size, tol)
+    ans = res[:len(x)]
+    return ans
+
+def kz2d(x, m, k = 3):
+    xp = x
+    window = m
+    res = libKZ_py.kz2d(xp, window, k)
+    ans = res[:len(x)]
+    return ans
+
+def kza2d(x, m, y = None, k = 3, min_size = None, tol = 1.0e-5):
+    xp = x
+    if y != None:
+        yp = y
+    else:
+        yp = kz2d(x,m)
+    if min_size == None:
+        min_size = 7
+    window = m
+    res = libKZ_py.kza2d(xp, yp, window, k, min_size, tol)
     ans = res[:len(x)]
     return ans
 
@@ -60,6 +77,14 @@ def run_func_tests(func_name, path):
             win_size = 365
             iterations = 3
             res = kza1d(x, win_size, k=iterations, min_size=10)
+        elif func_name == "kz2d":
+            win_size = [5,20]
+            iterations = 3
+            res = kz2d(x, win_size, k=iterations)
+        elif func_name == "kza2d":
+            win_size = [15,15]
+            iterations = 3
+            res = kza2d(x, win_size, k=iterations)
 
         if not np.allclose(res, ans):
             diff = res - ans
@@ -73,6 +98,8 @@ def main():
     tests_path = script_path
     run_func_tests("kz1d", tests_path)
     run_func_tests("kza1d", tests_path)
+    run_func_tests("kz2d", tests_path)
+    #run_func_tests("kza2d", tests_path)
 
 if __name__ == "__main__":
     main()
