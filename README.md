@@ -80,7 +80,8 @@ $ python run_tests.py
 [Vadim Marchenko](https://github.com/jakosv) 
 \<jakosvadim at gmail dot com\> - worked on kza.hpp and documentation
 
-[Polina Zolotareva](https://github.com/polin-drom) / 
+[Polina Zolotareva](https://github.com/polin-drom) 
+\<polinaazolot at gmail dot com\> / 
 [Nataliia Shalimova](https://github.com/LostOwlNata) - 
 worked on KZA theory (docs/kza_theory.pdf)
 
