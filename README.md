@@ -19,8 +19,7 @@ when a break occurs.
 
 KZA theory: docs/kza_theory.pdf
 
-Also see the R [kza package]
-(https://CRAN.R-project.org/package=kza)
+Also see the R [kza package](https://CRAN.R-project.org/package=kza)
 
 ## Authors:
 [Vadim Marchenko](https://github.com/jakosv) 
