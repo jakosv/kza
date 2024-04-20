@@ -1,7 +1,8 @@
 /*
 
     Kolmogorov-Zurbenko Adaptive Filter
-    Copyright (C) 2024 Vadim V. Marchenko <jakosvadim at gmail dot com>
+    Copyright (C) 2023, 2024 Vadim V. Marchenko <jakosvadim at gmail dot com>
+    Copyright (C) 2005, 2015 Brian D. Close
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -285,7 +286,7 @@ public:
         data.assign(vec.cbegin(), vec.cend());
         ans.resize(vec.size());
 
-#ifdef PREFIX_SUM
+#ifdef KZA_PREFIX_SUM
         pref_sum.resize(data.size() + 1);
         pref_finite_cnt.resize(data.size() + 1);
         update_prefix_sum(data); 
@@ -295,7 +296,7 @@ public:
             return std::move(data);
 
         this->perform_iterations([this]() {
-#ifdef PREFIX_SUM
+#ifdef KZA_PREFIX_SUM
             this->update_prefix_sum(ans);
 #else
             std::swap(data, ans);
@@ -317,13 +318,13 @@ public:
 
 protected:
 
-#ifdef PREFIX_SUM
-    /** \brief -DPREFIX_SUM preprocessor option required. */
+#ifdef KZA_PREFIX_SUM
+    /** \brief -DKZA_PREFIX_SUM preprocessor option required. */
     std::vector<ValueT> pref_sum;
     std::vector<SizeT> pref_finite_cnt;
 
     /**
-     * \brief -DPREFIX_SUM preprocessor option required.
+     * \brief -DKZA_PREFIX_SUM preprocessor option required.
             Calculate data prefix sums. The function also 
             calculates the number of finite elements on data array.
          \param data Initial data array.
@@ -342,7 +343,7 @@ protected:
     }
 
     /**
-     * \brief -DPREFIX_SUM preprocessor option required.
+     * \brief -DKZA_PREFIX_SUM preprocessor option required.
             The method calculates the average value on the interval in
             data array usign prefix sum.
          \param start_idx Index of the first element.
@@ -442,7 +443,7 @@ public:
         cols = data[0].size();
         ans.resize(rows, std::vector<ValueT>(cols));
 
-#ifdef PREFIX_SUM
+#ifdef KZA_PREFIX_SUM
         pref_sum.resize(rows + 1, std::vector<ValueT>(cols + 1, 0));
         pref_finite_cnt.resize(rows + 1, std::vector<SizeT>(cols + 1, 0));
         update_prefix_sum(data); 
@@ -452,7 +453,7 @@ public:
             return std::move(data);
 
         this->perform_iterations([this]() {
-#ifdef PREFIX_SUM
+#ifdef KZA_PREFIX_SUM
             this->update_prefix_sum(ans);
 #else
             data.swap(ans);
@@ -470,13 +471,13 @@ public:
 
 protected:
 
-#ifdef PREFIX_SUM
-    /** \brief -DPREFIX_SUM preprocessor option required. */
+#ifdef KZA_PREFIX_SUM
+    /** \brief -DKZA_PREFIX_SUM preprocessor option required. */
     std::vector<std::vector<ValueT>> pref_sum;
     std::vector<std::vector<SizeT>> pref_finite_cnt;
 
     /**
-     * \brief -DPREFIX_SUM preprocessor option required.
+     * \brief -DKZA_PREFIX_SUM preprocessor option required.
             Calculate 2D data prefix sums. The function also 
             calculates the number of finite elements on data array.
          \param data 2D data array.
@@ -500,7 +501,7 @@ protected:
     }
 
     /**
-     * \brief -DPREFIX_SUM preprocessor option required.
+     * \brief -DKZA_PREFIX_SUM preprocessor option required.
          The method calculates the average in a rectangle with given 
          corners coords using 2D prefix sum.
          \param start_row Upper corner row number.
@@ -745,11 +746,11 @@ public:
     }
 
 private:
-    /** \brief Array of KZ1D filter result differeces |y(i+q) - y(i-q)| */
+    /** \brief Array of KZ1D filter result differences |y(i+q) - y(i-q)| */
     std::vector<ValueT> kz_diff;
     ValueT max_diff;
 
-    /** \brief Array of KZ1D filter result discrete derrivatives */
+    /** \brief Array of KZ1D filter result discrete derivatives */
     std::vector<ValueT> kz_derivative;
 
     using KZGeneric<ValueT, SizeT, WinSizeT>::iterations;
@@ -784,9 +785,9 @@ private:
      * \param t Index of window center. Window size is 
                 left_half_win + right_half_win + 1.
     */
-    inline void calc_adaptive_half_windows(WinSizeT &left_half_win, 
-                                           WinSizeT &right_half_win, 
-                                           SizeT t)  
+    void calc_adaptive_half_windows(WinSizeT &left_half_win, 
+                                    WinSizeT &right_half_win, 
+                                    SizeT t)  
     {
         SizeT data_size = data.size();
         SizeT adaptive_size = this->adaptive_window(half_window, 
@@ -813,7 +814,7 @@ private:
                  |y[i+q] - y[i-q]| when q is a half window size.
         \param y KZ1D filter result array.
     */
-    inline void calc_kz_difference(const std::vector<ValueT> &y)
+    void calc_kz_difference(const std::vector<ValueT> &y)
     {
         SizeT n = y.size();
         WinSizeT q = half_window;
@@ -913,21 +914,21 @@ public:
     }
 
 private:
-    /** \brief Array of KZ2D filter result differeces in column space */
+    /** \brief Array of KZ2D filter result differences in column space */
     std::vector<std::vector<ValueT>> kz_dx;
 
-    /** \brief Array of KZ2D filter result differeces in row space */
+    /** \brief Array of KZ2D filter result differences in row space */
     std::vector<std::vector<ValueT>> kz_dy;
 
     ValueT max_dx, max_dy;
 
     /** 
-     \brief Array of KZ1D filter result discrete derrivatives in column space 
+     \brief Array of KZ1D filter result discrete derivatives in column space 
     */
     std::vector<std::vector<ValueT>> x_derivative;
 
     /** 
-     \brief Array of KZ1D filter result discrete derrivatives in row space 
+     \brief Array of KZ1D filter result discrete derivatives in row space 
     */
     std::vector<std::vector<ValueT>> y_derivative;
 
@@ -1023,8 +1024,7 @@ private:
      * \brief Calculates |Z(x+q2,y) - Z(x-q2,y)| and |Z(x,y+q1) - Z(x,y-q1)|
         \param kz 2D array of KZ2D filter result.
     */
-    inline void calc_kz_difference(
-            const std::vector<std::vector<ValueT>> &kz)
+    void calc_kz_difference(const std::vector<std::vector<ValueT>> &kz)
     {
         WinSizeT q1 = half_win_rows;
         WinSizeT q2 = half_win_cols;
@@ -1052,7 +1052,7 @@ private:
      * \brief Calculates discrete derivative of KZ2D filter result 
                 in row and columns spaces  
     */
-    inline void calc_kz_dirivative()
+    void calc_kz_dirivative()
     {
         /* d'(t) = d(i+1)-d(i) */
 
@@ -1070,6 +1070,8 @@ private:
             y_derivative[rows-1][j] = y_derivative[rows-2][j];
             x_derivative[rows-1][j] = kz_dx[rows-1][j+1] - kz_dx[rows-1][j];
         }
+        x_derivative[rows-1][cols-1] = x_derivative[rows-1][cols-2];
+        y_derivative[rows-1][cols-1] = y_derivative[rows-2][cols-1];
     }
 };
 
