@@ -104,10 +104,10 @@ Public Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
 <tr class="memitem:a5655c1ed59e3174a440dfbfc0bd0d774"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ2D.html#a5655c1ed59e3174a440dfbfc0bd0d774">update_prefix_sum</a> (const std::vector&lt; std::vector&lt; ValueT &gt; &gt; &amp;<a class="el" href="classKZ2D.html#a7be763e986dc9e21df65b783687198cb">data</a>)</td></tr>
-<tr class="memdesc:a5655c1ed59e3174a440dfbfc0bd0d774"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required. Calculate 2D data prefix sums. The function also calculates the number of finite elements on data array.  <a href="classKZ2D.html#a5655c1ed59e3174a440dfbfc0bd0d774">More...</a><br /></td></tr>
+<tr class="memdesc:a5655c1ed59e3174a440dfbfc0bd0d774"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required. Calculate 2D data prefix sums. The function also calculates the number of finite elements on data array.  <a href="classKZ2D.html#a5655c1ed59e3174a440dfbfc0bd0d774">More...</a><br /></td></tr>
 <tr class="separator:a5655c1ed59e3174a440dfbfc0bd0d774"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adfba33246f0fcbeba7577217674a527c"><td class="memItemLeft" align="right" valign="top">ValueT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ2D.html#adfba33246f0fcbeba7577217674a527c">average</a> (SizeT start_row, SizeT end_row, SizeT start_col, SizeT end_col)</td></tr>
-<tr class="memdesc:adfba33246f0fcbeba7577217674a527c"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required. The method calculates the average in a rectangle with given corners coords using 2D prefix sum.  <a href="classKZ2D.html#adfba33246f0fcbeba7577217674a527c">More...</a><br /></td></tr>
+<tr class="memdesc:adfba33246f0fcbeba7577217674a527c"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required. The method calculates the average in a rectangle with given corners coords using 2D prefix sum.  <a href="classKZ2D.html#adfba33246f0fcbeba7577217674a527c">More...</a><br /></td></tr>
 <tr class="separator:adfba33246f0fcbeba7577217674a527c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adfba33246f0fcbeba7577217674a527c"><td class="memItemLeft" align="right" valign="top">ValueT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ2D.html#adfba33246f0fcbeba7577217674a527c">average</a> (SizeT start_row, SizeT end_row, SizeT start_col, SizeT end_col)</td></tr>
 <tr class="memdesc:adfba33246f0fcbeba7577217674a527c"><td class="mdescLeft">&#160;</td><td class="mdescRight">The method calculates the average in a rectangle with given cornes coords.  <a href="classKZ2D.html#adfba33246f0fcbeba7577217674a527c">More...</a><br /></td></tr>
@@ -133,7 +133,7 @@ Protected Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-attribs" name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:afd2b007558dc42170e16c221e9598449"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::vector&lt; ValueT &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ2D.html#afd2b007558dc42170e16c221e9598449">pref_sum</a></td></tr>
-<tr class="memdesc:afd2b007558dc42170e16c221e9598449"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required.  <a href="classKZ2D.html#afd2b007558dc42170e16c221e9598449">More...</a><br /></td></tr>
+<tr class="memdesc:afd2b007558dc42170e16c221e9598449"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required.  <a href="classKZ2D.html#afd2b007558dc42170e16c221e9598449">More...</a><br /></td></tr>
 <tr class="separator:afd2b007558dc42170e16c221e9598449"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5dda9f2080952f7e3d7da18a500c74cd"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::vector&lt; SizeT &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ2D.html#a5dda9f2080952f7e3d7da18a500c74cd">pref_finite_cnt</a></td></tr>
 <tr class="separator:a5dda9f2080952f7e3d7da18a500c74cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -268,7 +268,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>-DPREFIX_SUM preprocessor option required. The method calculates the average in a rectangle with given corners coords using 2D prefix sum. </p>
+<p>-DKZA_PREFIX_SUM preprocessor option required. The method calculates the average in a rectangle with given corners coords using 2D prefix sum. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">start_row</td><td>Upper corner row number. </td></tr>
@@ -484,7 +484,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>-DPREFIX_SUM preprocessor option required. Calculate 2D data prefix sums. The function also calculates the number of finite elements on data array. </p>
+<p>-DKZA_PREFIX_SUM preprocessor option required. Calculate 2D data prefix sums. The function also calculates the number of finite elements on data array. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">data</td><td>2D data array. </td></tr>
@@ -665,7 +665,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>-DPREFIX_SUM preprocessor option required. </p>
+<p>-DKZA_PREFIX_SUM preprocessor option required. </p>
 
 </div>
 </div>

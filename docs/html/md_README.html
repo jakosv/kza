@@ -66,27 +66,36 @@ $(function() {
   <div class="headertitle"><div class="title">Kolmogorov-Zurbenko Adaptive Filter </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p >Header-only library with implementation of Adaptive Kolmogorov-Zurbenko filter for different dimensions.</p>
+<div class="textblock"><p >Header-only library multi-threaded implementation of Adaptive Kolmogorov-Zurbenko filter for different dimensions written in modern C++ as university project for parallel computing course.</p>
 <h1><a class="anchor" id="autotoc_md1"></a>
 KZ and KZA filters</h1>
 <p >The Kolmogorov-Zurbenko (KZ) filter is a low-pass filter designed to remove noise from time series and two- or three-dimensional data. It is based on a simple moving average filter and relies on two parameters: the smoothing window size and the number of iterations of the MA filter.</p>
 <p >The Kolmogorov-Zurbenko adaptive (KZA) filter is an extension of the KZ filter. It was designed to detect breaks in both one-dimensional and high-dimensional data by adjusting the size of the KZ smoothing window when a break occurs.</p>
 <p ><a href="https://jakosv.github.io/kza/html/md_README.html">Documentation</a></p>
 <p ><a href="docs/kza_theory.pdf">KZA theory</a></p>
-<p >See also R <a href="https://cran.r-project.org/web/packages/kza/index.html">kza package</a></p>
+<p >Also see the R [kza package] (<a href="https://CRAN.R-project.org/package=kza">https://CRAN.R-project.org/package=kza</a>)</p>
 <h1><a class="anchor" id="autotoc_md2"></a>
+Authors:</h1>
+<p ><a href="https://github.com/jakosv">Vadim Marchenko</a> &lt;jakosvadim at gmail dot com&gt; - worked on <a class="el" href="kza_8hpp.html">kza.hpp</a> and documentation</p>
+<p ><a href="https://github.com/polin-drom">Polina Zolotareva</a> &lt;polinaazolot at gmail dot com&gt; / <a href="https://github.com/LostOwlNata">Nataliia Shalimova</a> - worked on KZA theory (docs/kza_theory.pdf)</p>
+<p ><a href="https://github.com/DotaSlaer">Kirill Avdeichuk/Artem Cherepanov</a> - worked on tests</p>
+<p >Scientific supervisor: <a href="#" onclick="location.href='mai'+'lto:'+'pro'+'ma'+'ste'+'rd'+'en@'+'ya'+'nde'+'x.'+'ru'; return false;">Denis Vasilyevich Parfenov</a></p>
+<p >This C++ multi-threaded version based on C-code for <a href="https://CRAN.R-project.org/package=kza">R package by Brian Close</a></p>
+<h1><a class="anchor" id="autotoc_md3"></a>
 Build options</h1>
 <p >CMake has multiple options:</p><ul>
 <li><code>-DPREFIX_SUM</code> - prefix sum optimization;</li>
 <li><code>-DTIMER</code> - time measurement;</li>
 </ul>
-<h1><a class="anchor" id="autotoc_md3"></a>
+<h1><a class="anchor" id="autotoc_md4"></a>
 Usage</h1>
 <p >To use the library, you need to include the header file <a class="el" href="kza_8hpp.html">kza.hpp</a> in your project. After that, you can use one of the algorithms, for example one-dimensional Kolmogorov-Zurbenko Adaptive filter: </p><div class="fragment"><div class="line">KZ1D&lt;double, size_t, unsigned&gt; kz1d(window, iterations);</div>
 <div class="line">std::vector&lt;double&gt; kz_ans = kz1d(x);</div>
 <div class="line">KZA1D&lt;double, size_t, unsigned&gt; kz1d(window, min_win, tolerance, iterations);</div>
 <div class="line">std::vector&lt;double&gt; kza_ans = kza1d(x, kz_ans);</div>
-</div><!-- fragment --><p >You can also run examples of using the library in Python. To build a Python module, you need pybind11. If you dont want to provide pybind11 path in CMakeLists.txt, you can install it globaly with: </p><div class="fragment"><div class="line">$ pip install &quot;pybind11[global]&quot;</div>
+</div><!-- fragment --><h1><a class="anchor" id="autotoc_md5"></a>
+Examples</h1>
+<p >You can also run examples of using the library in Python. To build a Python module, you need pybind11. If you dont want to provide pybind11 path in CMakeLists.txt, you can install it globaly with: </p><div class="fragment"><div class="line">$ pip install &quot;pybind11[global]&quot;</div>
 </div><!-- fragment --><p> If you get the following error: "Imported target "pybind11::module" 
 includes non-existent path", run: </p><div class="fragment"><div class="line">$ sudo apt install python[version]-dev </div>
 </div><!-- fragment --><p> minimum version 3.6 ( recommended 3.11 )</p>
@@ -97,19 +106,13 @@ includes non-existent path", run: </p><div class="fragment"><div class="line">$ 
 <div class="line">$ python examples/kz2d_example.py </div>
 <div class="line">$ python examples/kza1d_example.py</div>
 <div class="line">$ python examples/kza2d_example.py</div>
-</div><!-- fragment --><h1><a class="anchor" id="autotoc_md4"></a>
+</div><!-- fragment --><h1><a class="anchor" id="autotoc_md6"></a>
 Testing</h1>
 <div class="fragment"><div class="line">$ cd tests </div>
 <div class="line">$ cmake . -Dkza_timer=true</div>
 <div class="line">$ make</div>
 <div class="line">$ python run_tests.py</div>
-</div><!-- fragment --><h1><a class="anchor" id="autotoc_md5"></a>
-Authors:</h1>
-<p ><a href="https://github.com/jakosv">Vadim Marchenko</a> &lt;jakosvadim at gmail dot com&gt; - worked on <a class="el" href="kza_8hpp.html">kza.hpp</a> and documentation</p>
-<p ><a href="https://github.com/polin-drom">Polina Zolotareva</a> / <a href="https://github.com/LostOwlNata">Nataliia Shalimova</a> - worked on KZA theory (docs/kza_theory.pdf)</p>
-<p ><a href="https://github.com/DotaSlaer">Kirill Avdeichuk</a> - worked on tests</p>
-<p >Scientific supervisor: <a href="#" onclick="location.href='mai'+'lto:'+'pro'+'ma'+'ste'+'rd'+'en@'+'ya'+'nde'+'x.'+'ru'; return false;">Denis Vasilyevich Parfenov</a> </p>
-</div></div><!-- contents -->
+</div><!-- fragment --> </div></div><!-- contents -->
 </div><!-- PageDoc -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

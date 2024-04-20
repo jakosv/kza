@@ -105,10 +105,10 @@ Public Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
 <tr class="memitem:ac30bba26e85d917d2e8ff59690e8a2ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#ac30bba26e85d917d2e8ff59690e8a2ea">update_prefix_sum</a> (const std::vector&lt; ValueT &gt; &amp;<a class="el" href="classKZ1D.html#a45d4aad6d71c3d7a08df87e06d8995c2">data</a>)</td></tr>
-<tr class="memdesc:ac30bba26e85d917d2e8ff59690e8a2ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required. Calculate data prefix sums. The function also calculates the number of finite elements on data array.  <a href="classKZ1D.html#ac30bba26e85d917d2e8ff59690e8a2ea">More...</a><br /></td></tr>
+<tr class="memdesc:ac30bba26e85d917d2e8ff59690e8a2ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required. Calculate data prefix sums. The function also calculates the number of finite elements on data array.  <a href="classKZ1D.html#ac30bba26e85d917d2e8ff59690e8a2ea">More...</a><br /></td></tr>
 <tr class="separator:ac30bba26e85d917d2e8ff59690e8a2ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a909a378186a8bde241e24cbaf62b5012"><td class="memItemLeft" align="right" valign="top">ValueT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">average</a> (SizeT start_idx, SizeT end_idx)</td></tr>
-<tr class="memdesc:a909a378186a8bde241e24cbaf62b5012"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required. The method calculates the average value on the interval in data array usign prefix sum.  <a href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">More...</a><br /></td></tr>
+<tr class="memdesc:a909a378186a8bde241e24cbaf62b5012"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required. The method calculates the average value on the interval in data array usign prefix sum.  <a href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">More...</a><br /></td></tr>
 <tr class="separator:a909a378186a8bde241e24cbaf62b5012"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a909a378186a8bde241e24cbaf62b5012"><td class="memItemLeft" align="right" valign="top">ValueT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">average</a> (SizeT start_idx, SizeT end_idx)</td></tr>
 <tr class="memdesc:a909a378186a8bde241e24cbaf62b5012"><td class="mdescLeft">&#160;</td><td class="mdescRight">The method calculates the average value on the interval in data array.  <a href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">More...</a><br /></td></tr>
@@ -134,7 +134,7 @@ Protected Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-attribs" name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:a51ed677d59eada68b95796948b8b0925"><td class="memItemLeft" align="right" valign="top">std::vector&lt; ValueT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a51ed677d59eada68b95796948b8b0925">pref_sum</a></td></tr>
-<tr class="memdesc:a51ed677d59eada68b95796948b8b0925"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required.  <a href="classKZ1D.html#a51ed677d59eada68b95796948b8b0925">More...</a><br /></td></tr>
+<tr class="memdesc:a51ed677d59eada68b95796948b8b0925"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required.  <a href="classKZ1D.html#a51ed677d59eada68b95796948b8b0925">More...</a><br /></td></tr>
 <tr class="separator:a51ed677d59eada68b95796948b8b0925"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a106d61e5ad103b62de57dbf9f94effb1"><td class="memItemLeft" align="right" valign="top">std::vector&lt; SizeT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a106d61e5ad103b62de57dbf9f94effb1">pref_finite_cnt</a></td></tr>
 <tr class="separator:a106d61e5ad103b62de57dbf9f94effb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -252,7 +252,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>-DPREFIX_SUM preprocessor option required. The method calculates the average value on the interval in data array usign prefix sum. </p>
+<p>-DKZA_PREFIX_SUM preprocessor option required. The method calculates the average value on the interval in data array usign prefix sum. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">start_idx</td><td>Index of the first element. </td></tr>
@@ -460,7 +460,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>-DPREFIX_SUM preprocessor option required. Calculate data prefix sums. The function also calculates the number of finite elements on data array. </p>
+<p>-DKZA_PREFIX_SUM preprocessor option required. Calculate data prefix sums. The function also calculates the number of finite elements on data array. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">data</td><td>Initial data array. </td></tr>
@@ -595,7 +595,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>-DPREFIX_SUM preprocessor option required. </p>
+<p>-DKZA_PREFIX_SUM preprocessor option required. </p>
 
 </div>
 </div>

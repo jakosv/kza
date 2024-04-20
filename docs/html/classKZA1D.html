@@ -138,22 +138,22 @@ Private Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pri-attribs" name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
 <tr class="memitem:a7a14440920756d53049d7861881d0d2f"><td class="memItemLeft" align="right" valign="top">std::vector&lt; ValueT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZA1D.html#a7a14440920756d53049d7861881d0d2f">kz_diff</a></td></tr>
-<tr class="memdesc:a7a14440920756d53049d7861881d0d2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result differeces |y(i+q) - y(i-q)|.  <a href="classKZA1D.html#a7a14440920756d53049d7861881d0d2f">More...</a><br /></td></tr>
+<tr class="memdesc:a7a14440920756d53049d7861881d0d2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result differences |y(i+q) - y(i-q)|.  <a href="classKZA1D.html#a7a14440920756d53049d7861881d0d2f">More...</a><br /></td></tr>
 <tr class="separator:a7a14440920756d53049d7861881d0d2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2474d2438a0c4f6ce0151a122a2972a5"><td class="memItemLeft" align="right" valign="top">ValueT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZA1D.html#a2474d2438a0c4f6ce0151a122a2972a5">max_diff</a></td></tr>
 <tr class="separator:a2474d2438a0c4f6ce0151a122a2972a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac9c176926b281ef69166d50d5eb91f94"><td class="memItemLeft" align="right" valign="top">std::vector&lt; ValueT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZA1D.html#ac9c176926b281ef69166d50d5eb91f94">kz_derivative</a></td></tr>
-<tr class="memdesc:ac9c176926b281ef69166d50d5eb91f94"><td class="mdescLeft">&#160;</td><td class="mdescRight">Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result discrete derrivatives.  <a href="classKZA1D.html#ac9c176926b281ef69166d50d5eb91f94">More...</a><br /></td></tr>
+<tr class="memdesc:ac9c176926b281ef69166d50d5eb91f94"><td class="mdescLeft">&#160;</td><td class="mdescRight">Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result discrete derivatives.  <a href="classKZA1D.html#ac9c176926b281ef69166d50d5eb91f94">More...</a><br /></td></tr>
 <tr class="separator:ac9c176926b281ef69166d50d5eb91f94"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="inherited" name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
 <tr class="inherit_header pro_methods_classKZ1D"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classKZ1D')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classKZ1D.html">KZ1D&lt; ValueT, SizeT, WinSizeT &gt;</a></td></tr>
 <tr class="memitem:ac30bba26e85d917d2e8ff59690e8a2ea inherit pro_methods_classKZ1D"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#ac30bba26e85d917d2e8ff59690e8a2ea">update_prefix_sum</a> (const std::vector&lt; ValueT &gt; &amp;<a class="el" href="classKZ1D.html#a45d4aad6d71c3d7a08df87e06d8995c2">data</a>)</td></tr>
-<tr class="memdesc:ac30bba26e85d917d2e8ff59690e8a2ea inherit pro_methods_classKZ1D"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required. Calculate data prefix sums. The function also calculates the number of finite elements on data array.  <a href="classKZ1D.html#ac30bba26e85d917d2e8ff59690e8a2ea">More...</a><br /></td></tr>
+<tr class="memdesc:ac30bba26e85d917d2e8ff59690e8a2ea inherit pro_methods_classKZ1D"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required. Calculate data prefix sums. The function also calculates the number of finite elements on data array.  <a href="classKZ1D.html#ac30bba26e85d917d2e8ff59690e8a2ea">More...</a><br /></td></tr>
 <tr class="separator:ac30bba26e85d917d2e8ff59690e8a2ea inherit pro_methods_classKZ1D"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a909a378186a8bde241e24cbaf62b5012 inherit pro_methods_classKZ1D"><td class="memItemLeft" align="right" valign="top">ValueT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">average</a> (SizeT start_idx, SizeT end_idx)</td></tr>
-<tr class="memdesc:a909a378186a8bde241e24cbaf62b5012 inherit pro_methods_classKZ1D"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required. The method calculates the average value on the interval in data array usign prefix sum.  <a href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">More...</a><br /></td></tr>
+<tr class="memdesc:a909a378186a8bde241e24cbaf62b5012 inherit pro_methods_classKZ1D"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required. The method calculates the average value on the interval in data array usign prefix sum.  <a href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">More...</a><br /></td></tr>
 <tr class="separator:a909a378186a8bde241e24cbaf62b5012 inherit pro_methods_classKZ1D"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a909a378186a8bde241e24cbaf62b5012 inherit pro_methods_classKZ1D"><td class="memItemLeft" align="right" valign="top">ValueT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">average</a> (SizeT start_idx, SizeT end_idx)</td></tr>
 <tr class="memdesc:a909a378186a8bde241e24cbaf62b5012 inherit pro_methods_classKZ1D"><td class="mdescLeft">&#160;</td><td class="mdescRight">The method calculates the average value on the interval in data array.  <a href="classKZ1D.html#a909a378186a8bde241e24cbaf62b5012">More...</a><br /></td></tr>
@@ -186,7 +186,7 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:a8da99c675085cecbb9f40d1eef8a683a inherit pro_methods_classKZAExtension"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classKZ1D"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classKZ1D')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classKZ1D.html">KZ1D&lt; ValueT, SizeT, WinSizeT &gt;</a></td></tr>
 <tr class="memitem:a51ed677d59eada68b95796948b8b0925 inherit pro_attribs_classKZ1D"><td class="memItemLeft" align="right" valign="top">std::vector&lt; ValueT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a51ed677d59eada68b95796948b8b0925">pref_sum</a></td></tr>
-<tr class="memdesc:a51ed677d59eada68b95796948b8b0925 inherit pro_attribs_classKZ1D"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DPREFIX_SUM preprocessor option required.  <a href="classKZ1D.html#a51ed677d59eada68b95796948b8b0925">More...</a><br /></td></tr>
+<tr class="memdesc:a51ed677d59eada68b95796948b8b0925 inherit pro_attribs_classKZ1D"><td class="mdescLeft">&#160;</td><td class="mdescRight">-DKZA_PREFIX_SUM preprocessor option required.  <a href="classKZ1D.html#a51ed677d59eada68b95796948b8b0925">More...</a><br /></td></tr>
 <tr class="separator:a51ed677d59eada68b95796948b8b0925 inherit pro_attribs_classKZ1D"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a106d61e5ad103b62de57dbf9f94effb1 inherit pro_attribs_classKZ1D"><td class="memItemLeft" align="right" valign="top">std::vector&lt; SizeT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classKZ1D.html#a106d61e5ad103b62de57dbf9f94effb1">pref_finite_cnt</a></td></tr>
 <tr class="separator:a106d61e5ad103b62de57dbf9f94effb1 inherit pro_attribs_classKZ1D"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -556,7 +556,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result discrete derrivatives. </p>
+<p>Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result discrete derivatives. </p>
 
 </div>
 </div>
@@ -582,7 +582,7 @@ template&lt;class ValueT , std::unsigned_integral SizeT, std::unsigned_integral 
 </table>
 </div><div class="memdoc">
 
-<p>Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result differeces |y(i+q) - y(i-q)|. </p>
+<p>Array of <a class="el" href="classKZ1D.html" title="Kolmogorov-Zurbenko 1D filter.">KZ1D</a> filter result differences |y(i+q) - y(i-q)|. </p>
 
 </div>
 </div>

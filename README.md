@@ -1,6 +1,8 @@
 # Kolmogorov-Zurbenko Adaptive Filter
-Header-only library with implementation of
-Adaptive Kolmogorov-Zurbenko filter for different dimensions.
+Header-only library multi-threaded implementation of
+Adaptive Kolmogorov-Zurbenko filter for different dimensions
+written in modern C++ as university project for parallel computing course. 
+
 
 ## KZ and KZA filters
 The Kolmogorov-Zurbenko (KZ) filter is a low-pass filter designed to 
@@ -15,10 +17,28 @@ when a break occurs.
 
 [Documentation](https://jakosv.github.io/kza/html/md_README.html)
 
-[KZA theory](docs/kza_theory.pdf)
+KZA theory: docs/kza_theory.pdf
 
-See also R [kza package](
-https://cran.r-project.org/web/packages/kza/index.html)
+Also see the R [kza package]
+(https://CRAN.R-project.org/package=kza)
+
+## Authors:
+[Vadim Marchenko](https://github.com/jakosv) 
+\<jakosvadim at gmail dot com\> - worked on kza.hpp and documentation
+
+[Polina Zolotareva](https://github.com/polin-drom) 
+\<polinaazolot at gmail dot com\> / 
+[Nataliia Shalimova](https://github.com/LostOwlNata) - 
+worked on KZA theory (docs/kza_theory.pdf)
+
+[Kirill Avdeichuk/Artem Cherepanov](https://github.com/DotaSlaer) - 
+worked on tests
+
+Scientific supervisor: 
+[Denis Vasilyevich Parfenov](mailto:promasterden@yandex.ru)
+
+This C++ multi-threaded version based on C-code for
+[R package by Brian Close](https://CRAN.R-project.org/package=kza)
 
 
 ## Build options
@@ -39,6 +59,7 @@ KZA1D<double, size_t, unsigned> kz1d(window, min_win, tolerance, iterations);
 std::vector<double> kza_ans = kza1d(x, kz_ans);
 ```
 
+## Examples
 You can also run examples of using the library in Python.
 To build a Python module, you need pybind11.
 If you dont want to provide pybind11 path in CMakeLists.txt, you can 
@@ -75,18 +96,3 @@ $ cmake . -Dkza_timer=true
 $ make
 $ python run_tests.py
 ```
-
-## Authors:
-[Vadim Marchenko](https://github.com/jakosv) 
-\<jakosvadim at gmail dot com\> - worked on kza.hpp and documentation
-
-[Polina Zolotareva](https://github.com/polin-drom) 
-\<polinaazolot at gmail dot com\> / 
-[Nataliia Shalimova](https://github.com/LostOwlNata) - 
-worked on KZA theory (docs/kza_theory.pdf)
-
-[Kirill Avdeichuk](https://github.com/DotaSlaer) - worked on tests
-
-Scientific supervisor: 
-[Denis Vasilyevich Parfenov](mailto:promasterden@yandex.ru)
-
